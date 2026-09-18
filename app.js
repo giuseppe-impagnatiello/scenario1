@@ -114,7 +114,7 @@ function renderDebrief1(score, tp, fp, choiceCorrect) {
 }
 
 // avvio
-renderPhase1();
+goToPhase(1);
 
 // --- definizione Fase 2 ---
 const phase2 = {
@@ -297,8 +297,102 @@ function renderDebrief3(score, tp, fp, choiceCorrect) {
     </div>
   `;
   document.getElementById('repeatBtn3').addEventListener('click', renderPhase3);
-  document.getElementById('finishBtn').addEventListener('click', () => {
-    alert('Il modulo Rapporto arriva nel prossimo step — per ora i tuoi punteggi sono già salvati in localStorage.');
-  });
+  document.getElementById('finishBtn').addEventListener('click', () => goToPhase(4));
   document.querySelectorAll('.phase-item')[2].classList.add('done');
+}
+
+// --- navigazione tra fasi (permette anche di rivedere quelle già completate) ---
+function goToPhase(n) {
+  if (n === 1) {
+    setActivePhase(1);
+    state.phase1
+      ? renderDebrief1(state.phase1.score, state.phase1.truePositives, state.phase1.falsePositives, state.phase1.choiceCorrect)
+      : renderPhase1();
+  } else if (n === 2) {
+    if (!state.phase1) { alert('Completa prima la Fase 1.'); return; }
+    setActivePhase(2);
+    state.phase2
+      ? renderDebrief2(state.phase2.score, state.phase2.truePositives, state.phase2.falsePositives, state.phase2.choiceCorrect)
+      : renderPhase2();
+  } else if (n === 3) {
+    if (!state.phase2) { alert('Completa prima la Fase 2.'); return; }
+    setActivePhase(3);
+    state.phase3
+      ? renderDebrief3(state.phase3.score, state.phase3.truePositives, state.phase3.falsePositives, state.phase3.choiceCorrect)
+      : renderPhase3();
+  } else if (n === 4) {
+    renderReport();
+  }
+}
+
+// rende cliccabili le voci del menu laterale
+document.querySelectorAll('.phase-item').forEach(item => {
+  item.style.cursor = 'pointer';
+  item.addEventListener('click', () => goToPhase(Number(item.dataset.phase)));
+});
+
+// --- Rapporto finale ---
+function renderReport() {
+  setActivePhase(4);
+  const main = document.getElementById('mainView');
+  const phases = [
+    { key: 'phase1', label: 'MFA Fatigue', tech: 'T1621', go: 1 },
+    { key: 'phase2', label: 'Contatto Help Desk', tech: 'T1656', go: 2 },
+    { key: 'phase3', label: 'Esito', tech: 'T1078', go: 3 }
+  ];
+  const done = phases.filter(p => state[p.key]);
+  const avg = done.length
+    ? Math.round(done.reduce((sum, p) => sum + state[p.key].score, 0) / done.length)
+    : 0;
+
+  main.innerHTML = `
+    <div class="brief">
+      Fascicolo chiuso. Il rapporto riassume il percorso investigativo sui tre momenti chiave
+      dell'incidente: individuazione della MFA fatigue, riconoscimento del pretesto dell'help desk
+      fasullo, reazione alla compromissione dell'accesso.
+    </div>
+    <div class="debrief">
+      <div class="score">${avg}%</div>
+      <div>punteggio medio su ${done.length} di 3 fasi completate</div>
+      ${phases.map(p => {
+        const d = state[p.key];
+        return `
+          <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:14px;">
+            <h4 style="margin-bottom:4px;">${p.label} — ${p.tech}</h4>
+            ${d
+              ? `<p style="font-size:13px;">Punteggio: ${d.score}% · ${d.truePositives} indicatori corretti · ${d.falsePositives} falsi positivi · decisione ${d.choiceCorrect ? 'corretta' : 'da rivedere'}</p>
+                 <button class="secondary reopen" data-goto="${p.go}">Rivedi fase</button>`
+              : `<p style="font-size:13px; color:var(--ink-dim);">Non ancora completata.</p>`
+            }
+          </div>`;
+      }).join('')}
+      <div style="margin-top:20px;">
+        <button class="secondary" id="exportBtn">Esporta rapporto JSON</button>
+        <button class="secondary" id="resetBtn">Azzera sessione</button>
+      </div>
+    </div>
+  `;
+
+  document.querySelectorAll('.reopen').forEach(btn => {
+    btn.addEventListener('click', () => goToPhase(Number(btn.dataset.goto)));
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'rapporto_scenario1.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    if (confirm('Azzerare tutti i risultati salvati su questo browser?')) {
+      state = {};
+      saveState(state);
+      goToPhase(1);
+    }
+  });
+
+  document.querySelectorAll('.phase-item').forEach(el => el.classList.add('done'));
 }
