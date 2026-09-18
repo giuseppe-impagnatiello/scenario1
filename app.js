@@ -9,6 +9,13 @@ function saveState(s) {
 }
 let state = loadState();
 
+function setActivePhase(n, label) {
+  document.getElementById('statusLine').textContent = `fase ${n} di 3`;
+  document.querySelectorAll('.phase-item').forEach((el, i) => {
+    el.classList.toggle('active', i === n - 1);
+  });
+}
+
 // --- definizione Fase 1 ---
 const phase1 = {
   briefing: `Sono le 09:12. Sul telefono dell'amministratore di rete inizia ad arrivare una serie
@@ -36,6 +43,7 @@ const phase1 = {
 };
 
 function renderPhase1() {
+    setActivePhase(1);
   const main = document.getElementById('mainView');
   main.innerHTML = `
     <div class="brief">${phase1.briefing}</div>
@@ -95,11 +103,13 @@ function renderDebrief1(score, tp, fp, choiceCorrect) {
         </div>
       </div>
       <div style="margin-top:18px;">
+        <button class="primary" id="nextBtn1">Fase successiva</button>
         <button class="secondary" id="repeatBtn">Ripeti fase</button>
       </div>
     </div>
   `;
   document.getElementById('repeatBtn').addEventListener('click', renderPhase1);
+    document.getElementById('nextBtn1').addEventListener('click', renderPhase2);
   document.querySelectorAll('.phase-item')[0].classList.add('done');
 }
 
@@ -133,7 +143,7 @@ const phase2 = {
 };
 
 function renderPhase2() {
-  document.querySelectorAll('.phase-item')[1].classList.add('active');
+      setActivePhase(2);
   const main = document.getElementById('mainView');
   main.innerHTML = `
     <div class="brief">${phase2.briefing}</div>
@@ -189,10 +199,106 @@ function renderDebrief2(score, tp, fp, choiceCorrect) {
         </div>
       </div>
       <div style="margin-top:18px;">
+        <button class="primary" id="nextBtn2">Fase successiva</button>
         <button class="secondary" id="repeatBtn2">Ripeti fase</button>
       </div>
     </div>
   `;
   document.getElementById('repeatBtn2').addEventListener('click', renderPhase2);
+    document.getElementById('nextBtn2').addEventListener('click', renderPhase3);
   document.querySelectorAll('.phase-item')[1].classList.add('done');
+}
+
+// --- definizione Fase 3 ---
+const phase3 = {
+  briefing: `Sono le 09:37:30. Il sistema di accesso remoto registra un'autenticazione riuscita,
+  immediatamente dopo l'approvazione MFA forzata della Fase 2.`,
+  feed: [
+    "08:47:15 — AUTH_SUCCESS — user=prof.rossi — src=90.147.22.6 (postazione nota)",
+    "09:12:04 — AUTH_FAILURE — user=utente.rossi — src=185.14.22.90 — reason=MFA_TIMEOUT",
+    "09:37:30 — AUTH_SUCCESS — user=utente.rossi — src=185.14.22.90 — session=VPN-8841"
+  ],
+  checklist: [
+    { id: 'c1', label: "L'IP dell'accesso riuscito coincide con quello del tentativo fallito delle 09:12", correct: true },
+    { id: 'c2', label: "L'accesso avviene esattamente 30 secondi dopo l'approvazione MFA forzata", correct: true },
+    { id: 'c3', label: "L'IP è diverso da quello della postazione abituale nota (prof.rossi)", correct: true },
+    { id: 'c4', label: "L'orario rientra nel normale orario lavorativo", correct: false },
+    { id: 'c5', label: "Lo username coincide con quello dell'accesso precedente legittimo", correct: false }
+  ],
+  choices: [
+    { id: 'a', label: 'Revoca subito la sessione attiva, blocca l\'account e avvia la procedura di incident response', correct: true },
+    { id: 'b', label: 'Attendi il prossimo tentativo di accesso per avere conferma', correct: false },
+    { id: 'c', label: "Contatta l'utente via email per chiedere se è stato lui", correct: false },
+    { id: 'd', label: "Nessuna azione necessaria, l'MFA è stata approvata regolarmente", correct: false }
+  ]
+};
+
+function renderPhase3() {
+  setActivePhase(3);
+  const main = document.getElementById('mainView');
+  main.innerHTML = `
+    <div class="brief">${phase3.briefing}</div>
+    <div class="feed">
+      ${phase3.feed.map(r => `<div class="row"><span>${r}</span></div>`).join('')}
+    </div>
+    <div class="qblock">
+      <h3>Quali elementi richiedono attenzione?</h3>
+      ${phase3.checklist.map(c => `<label class="opt"><input type="checkbox" name="check3" value="${c.id}"> ${c.label}</label>`).join('')}
+    </div>
+    <div class="qblock">
+      <h3>Quale azione intraprenderesti ora?</h3>
+      ${phase3.choices.map(c => `<label class="opt"><input type="radio" name="choice3" value="${c.id}"> ${c.label}</label>`).join('')}
+    </div>
+    <button class="primary" id="confirmBtn3">Conferma scelte</button>
+  `;
+  document.getElementById('confirmBtn3').addEventListener('click', evaluatePhase3);
+}
+
+function evaluatePhase3() {
+  const checked = Array.from(document.querySelectorAll('input[name="check3"]:checked')).map(i => i.value);
+  const chosen = document.querySelector('input[name="choice3"]:checked');
+
+  const truePositives = phase3.checklist.filter(c => c.correct && checked.includes(c.id)).length;
+  const falsePositives = phase3.checklist.filter(c => !c.correct && checked.includes(c.id)).length;
+  const totalCorrectIndicators = phase3.checklist.filter(c => c.correct).length;
+  const choiceCorrect = chosen && phase3.choices.find(c => c.id === chosen.value)?.correct;
+
+  const indicatorScore = Math.max(0, (truePositives - falsePositives) / totalCorrectIndicators);
+  const score = Math.round(((indicatorScore + (choiceCorrect ? 1 : 0)) / 2) * 100);
+
+  state.phase3 = { score, truePositives, falsePositives, choiceCorrect: !!choiceCorrect };
+  saveState(state);
+  renderDebrief3(score, truePositives, falsePositives, choiceCorrect);
+}
+
+function renderDebrief3(score, tp, fp, choiceCorrect) {
+  const main = document.getElementById('mainView');
+  main.innerHTML = `
+    <div class="debrief">
+      <div class="score">${score}%</div>
+      <div>${tp} indicatori corretti rilevati · ${fp} falsi positivi · decisione ${choiceCorrect ? 'corretta' : 'da rivedere'}</div>
+      <div class="cols">
+        <div>
+          <h4>Indicatori decisivi</h4>
+          <ul>${phase3.checklist.filter(c => c.correct).map(c => `<li>${c.label}</li>`).join('')}</ul>
+        </div>
+        <div>
+          <h4>Tecnica impiegata</h4>
+          <p style="font-size:13px;line-height:1.6;">MITRE ATT&amp;CK T1078 — Valid Accounts.
+          Superata la MFA, l'attaccante accede con credenziali formalmente valide: da questo momento
+          il traffico appare legittimo ai sistemi di controllo, il che rende la correlazione temporale
+          tra i log l'unico modo per individuare la compromissione.</p>
+        </div>
+      </div>
+      <div style="margin-top:18px;">
+        <button class="primary" id="finishBtn">Vai al rapporto finale</button>
+        <button class="secondary" id="repeatBtn3">Ripeti fase</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('repeatBtn3').addEventListener('click', renderPhase3);
+  document.getElementById('finishBtn').addEventListener('click', () => {
+    alert('Il modulo Rapporto arriva nel prossimo step — per ora i tuoi punteggi sono già salvati in localStorage.');
+  });
+  document.querySelectorAll('.phase-item')[2].classList.add('done');
 }
