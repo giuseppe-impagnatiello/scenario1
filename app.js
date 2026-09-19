@@ -1,398 +1,491 @@
-// --- stato e utilità localStorage ---
-const STORAGE_KEY = 'scenario1_progress';
-function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-  catch (e) { return {}; }
-}
-function saveState(s) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {}
-}
+// ============ DATI DEGLI SCENARI ============
+const SCENARIOS = [
+  { id: 'uber', title: 'Scenario 1 — Uber', subtitle: 'Accesso VPN compromesso', phases: [
+    { label: 'MFA Fatigue',
+      briefing: `Sono le 09:12. Sul telefono dell'amministratore di rete inizia ad arrivare una serie di notifiche push per l'autenticazione a più fattori, non richieste da nessun accesso volontario.`,
+      feed: ['09:12:04 — richiesta MFA — respinta','09:14:51 — richiesta MFA — respinta','09:19:23 — richiesta MFA — respinta','09:23:47 — richiesta MFA — respinta','09:28:10 — richiesta MFA — respinta'],
+      checklist: [
+        { t: "Le richieste non sono state generate da un accesso volontario dell'utente", c: true },
+        { t: "Le notifiche si ripetono a distanza di pochi minuti l'una dall'altra", c: true },
+        { t: 'Non è arrivata nessuna comunicazione ufficiale che annunci un controllo di sicurezza', c: true },
+        { t: "L'orario è compatibile con il normale accesso mattutino", c: false },
+        { t: "Il nome dell'app di autenticazione mostrata è quello ufficiale aziendale", c: false }
+      ],
+      choices: [
+        { t: "Rifiuta tutte le richieste e segnala subito l'anomalia all'IT", c: true },
+        { t: "Approva l'ultima richiesta per far smettere le notifiche", c: false },
+        { t: 'Ignora le notifiche, si fermeranno da sole', c: false },
+        { t: "Contatta l'IT solo se continuano per più di un'ora", c: false }
+      ],
+      tech: { code: 'T1621', name: 'MFA Request Generation', text: "L'attaccante genera richieste ripetute confidando nella fatica dell'utente, che finisce per approvarne una solo per far cessare le notifiche." }
+    },
+    { label: 'Contatto Help Desk',
+      briefing: `Sono le 09:35. Un operatore che si presenta come "IT Support Desk" contatta la vittima in chat, proprio mentre le notifiche MFA continuano ad arrivare.`,
+      feed: [
+        { from: 'IT-SUPPORT-DESK', text: 'Buongiorno, la contatto dal supporto IT centrale. Abbiamo rilevato tentativi di accesso sospetti sul suo account e stiamo forzando un ricontrollo MFA.' },
+        { from: 'utente.rossi', text: 'Ok, ma non ho richiesto nulla io' },
+        { from: 'IT-SUPPORT-DESK', text: "Lo so, è la procedura automatica di verifica. Le arriveranno delle notifiche sul telefono, le chiedo di approvarle così chiudiamo il ticket prima che le venga bloccato l'accesso VPN." },
+        { from: 'utente.rossi', text: 'Ne ho già rifiutate parecchie prima' },
+        { from: 'IT-SUPPORT-DESK', text: "Esatto, è il sistema che ritenta. L'ultima che arriva è quella buona per la chiusura ticket, quella la approvi pure." }
+      ],
+      checklist: [
+        { t: "L'operatore non fornisce alcun numero di ticket verificabile", c: true },
+        { t: 'Chiede di approvare una notifica già in corso, non di generarne una nuova tramite procedura ufficiale', c: true },
+        { t: 'Il contatto avviene su un canale chat non riconducibile ai sistemi IT ufficiali', c: true },
+        { t: 'Il tono è cortese e professionale', c: false },
+        { t: "L'operatore conosce già lo username dell'utente", c: false }
+      ],
+      choices: [
+        { t: "Interrompi la conversazione e verifica l'identità dell'operatore chiamando il numero IT ufficiale già noto", c: true },
+        { t: 'Approva la prossima notifica per chiudere subito il ticket', c: false },
+        { t: 'Chiedi il nome completo dell\'operatore e continua a seguirlo', c: false },
+        { t: 'Segui le istruzioni ma senza approvare nulla, per sicurezza', c: false }
+      ],
+      tech: { code: 'T1656', name: 'Impersonation', text: "L'attaccante si finge un ruolo di fiducia (supporto IT) per fornire un pretesto tecnico plausibile nel momento esatto in cui la vittima è più vulnerabile alla richiesta." }
+    },
+    { label: 'Esito',
+      briefing: `Sono le 09:37:30. Il sistema di accesso remoto registra un'autenticazione riuscita, immediatamente dopo l'approvazione MFA forzata della Fase 2.`,
+      feed: ['08:47:15 — AUTH_SUCCESS — user=prof.rossi — src=90.147.22.6 (postazione nota)','09:12:04 — AUTH_FAILURE — user=utente.rossi — src=185.14.22.90 — reason=MFA_TIMEOUT','09:37:30 — AUTH_SUCCESS — user=utente.rossi — src=185.14.22.90 — session=VPN-8841'],
+      checklist: [
+        { t: "L'IP dell'accesso riuscito coincide con quello del tentativo fallito delle 09:12", c: true },
+        { t: "L'accesso avviene esattamente 30 secondi dopo l'approvazione MFA forzata", c: true },
+        { t: "L'IP è diverso da quello della postazione abituale nota (prof.rossi)", c: true },
+        { t: "L'orario rientra nel normale orario lavorativo", c: false },
+        { t: "Lo username coincide con quello dell'accesso precedente legittimo", c: false }
+      ],
+      choices: [
+        { t: "Revoca subito la sessione attiva, blocca l'account e avvia la procedura di incident response", c: true },
+        { t: 'Attendi il prossimo tentativo di accesso per avere conferma', c: false },
+        { t: "Contatta l'utente via email per chiedere se è stato lui", c: false },
+        { t: "Nessuna azione necessaria, l'MFA è stata approvata regolarmente", c: false }
+      ],
+      tech: { code: 'T1078', name: 'Valid Accounts', text: "Superata la MFA, l'attaccante accede con credenziali formalmente valide: da questo momento il traffico appare legittimo ai sistemi di controllo, il che rende la correlazione temporale tra i log l'unico modo per individuare la compromissione." }
+    }
+  ]},
+
+  { id: 'arup', title: 'Scenario 2 — Arup', subtitle: 'Frode tramite contenuti sintetici', phases: [
+    { label: 'Email sospetta',
+      briefing: `Arriva una email che si presenta come richiesta urgente e riservata da parte del CFO, riguardante un trasferimento di fondi.`,
+      feed: ['From: CFO <c.finance@arup-group.com>','Return-Path: <ops@arup-grp-finance.com>','Auth-Results: spf=fail dkim=fail','Oggetto: Operazione riservata — azione richiesta entro oggi'],
+      checklist: [
+        { t: 'Il campo Return-Path punta a un dominio diverso da quello del mittente visualizzato', c: true },
+        { t: 'I controlli SPF e DKIM risultano falliti', c: true },
+        { t: 'La richiesta riguarda un pagamento urgente e riservato', c: true },
+        { t: 'Il messaggio è stato inviato in orario lavorativo', c: false },
+        { t: 'Il mittente ha già scritto in passato all\'utente', c: false }
+      ],
+      choices: [
+        { t: "Verificare l'autenticità tramite un canale separato prima di qualsiasi azione", c: true },
+        { t: 'Rispondere chiedendo conferma via email allo stesso mittente', c: false },
+        { t: "Procedere e coinvolgere subito l'ufficio pagamenti", c: false },
+        { t: 'Ignorare la richiesta senza segnalarla', c: false }
+      ],
+      tech: { code: 'T1656', name: 'Impersonation', text: "L'header contraffatto simula l'identità di un dirigente per legittimare la richiesta agli occhi del destinatario." }
+    },
+    { label: 'Videochiamata',
+      briefing: `Segue una videochiamata in cui una persona dall'aspetto e dalla voce del CFO conferma la richiesta, insistendo su urgenza e riservatezza.`,
+      feed: ['video_metadata.json','codec: H.264 / Opus — risoluzione: 1080p','device: OBS Virtual Camera','renderer: DeepFaceLab_GAN_Renderer_v2.0'],
+      checklist: [
+        { t: "Il metadata del video mostra l'uso di un motore di rendering non standard", c: true },
+        { t: 'Durante la chiamata viene richiesta urgenza e riservatezza', c: true },
+        { t: 'Il dispositivo video indicato è una virtual camera anziché una webcam fisica', c: true },
+        { t: 'La risoluzione video è quella standard aziendale', c: false },
+        { t: "L'interlocutore usa il nome corretto del CFO", c: false }
+      ],
+      choices: [
+        { t: "Interrompere la videochiamata e verificare l'identità tramite un canale indipendente noto", c: true },
+        { t: "Procedere con la richiesta vista l'urgenza dichiarata", c: false },
+        { t: 'Richiedere ulteriori dettagli ma continuare nella stessa chiamata', c: false },
+        { t: 'Segnalare solo a fine giornata', c: false }
+      ],
+      tech: { code: 'T0087.001', name: 'Develop AI-Generated Video (DISARM)', text: "La componente audiovisiva sintetica rafforza la credibilità dell'impersonificazione, aggirando la naturale diffidenza verso una semplice richiesta scritta." }
+    },
+    { label: 'Esito',
+      briefing: `Il bonifico viene autorizzato sulla base delle sole comunicazioni ricevute.`,
+      feed: ['wire_transfer_auth.pdf','Beneficiario: nuovo fornitore, non presente in anagrafica abituale','IBAN: CH93 1234 5678 9012 3456 7','Importo: superiore alla soglia di doppia approvazione'],
+      checklist: [
+        { t: 'Il bonifico è stato autorizzato sulla base di una sola comunicazione non verificata', c: true },
+        { t: "L'IBAN di destinazione non risulta tra quelli abitualmente utilizzati dal fornitore", c: true },
+        { t: "L'importo supera la soglia che richiederebbe una doppia approvazione", c: true },
+        { t: 'Il bonifico è stato eseguito in valuta estera', c: false },
+        { t: 'La richiesta proveniva da un dirigente noto', c: false }
+      ],
+      choices: [
+        { t: 'Bloccare immediatamente il bonifico se non ancora eseguito e avviare la segnalazione alla banca e al CERT aziendale', c: true },
+        { t: 'Attendere la prossima riunione per discuterne', c: false },
+        { t: 'Contattare il presunto CFO via email per conferma a posteriori', c: false },
+        { t: 'Non fare nulla, la procedura è stata seguita', c: false }
+      ],
+      tech: { code: 'T1657', name: 'Financial Theft', text: "Il trasferimento fraudolento costituisce l'obiettivo finale della catena di inganno avviata con l'email e rafforzata dalla videochiamata sintetica." }
+    }
+  ]},
+
+  { id: 'twitter', title: 'Scenario 3 — Twitter', subtitle: 'Compromissione via vishing e OSINT', phases: [
+    { label: 'Ricognizione OSINT',
+      briefing: `Prima del contatto diretto, l'attaccante raccoglie informazioni pubbliche sulla vittima per costruire un pretesto credibile.`,
+      feed: ['employee_profile.txt','"disservizi VPN ancora nel weekend..." — post pubblico','Menzioni a colleghi del reparto IT','Orari di lavoro abituali dedotti da post ricorrenti'],
+      checklist: [
+        { t: 'Il profilo raccoglie lamentele pubbliche della vittima sulla VPN', c: true },
+        { t: 'Vengono citati nomi di colleghi realmente esistenti', c: true },
+        { t: 'Il documento include orari e abitudini dedotte da post pubblici', c: true },
+        { t: 'Il documento è stato ottenuto da fonti riservate aziendali', c: false },
+        { t: 'Il profilo contiene una foto ufficiale del badge aziendale', c: false }
+      ],
+      choices: [
+        { t: "Documentare l'esposizione informativa come fattore abilitante dell'attacco nel rapporto", c: true },
+        { t: 'Ignorare il dossier, non è tecnicamente rilevante', c: false },
+        { t: "Contattare direttamente l'autore del dossier per identificarlo", c: false },
+        { t: 'Eliminare il profilo social della vittima', c: false }
+      ],
+      tech: { code: 'T1589.002', name: 'Gather Victim Identity Information: Social Media', text: "La ricognizione su fonti aperte fornisce all'attaccante i dettagli necessari a rendere credibile il pretesto della fase successiva." }
+    },
+    { label: 'Vishing',
+      briefing: `Un operatore telefonico, citando dettagli raccolti nella ricognizione, contatta la vittima presentandosi come supporto IT.`,
+      feed: [
+        { from: 'Operatore', text: 'Buongiorno, la contatto per il ticket aperto sui disservizi VPN di cui parlava anche nei giorni scorsi.' },
+        { from: 'Vittima', text: 'Ah sì, finalmente!' },
+        { from: 'Operatore', text: 'Le mando il link per riconfigurare l\'accesso: vpn-support-helpdesk.it/login' }
+      ],
+      checklist: [
+        { t: "L'operatore non fornisce alcun codice ticket verificabile", c: true },
+        { t: 'Il dominio menzionato per il portale VPN è diverso da quello ufficiale', c: true },
+        { t: 'La chiamata cita dettagli personali raccolti dal profilo OSINT per apparire credibile', c: true },
+        { t: "La chiamata avviene dal numero ufficiale dell'IT", c: false },
+        { t: "L'operatore chiede esplicitamente la password in chiaro", c: false }
+      ],
+      choices: [
+        { t: 'Interrompere la chiamata e verificare il canale attraverso i contatti IT ufficiali noti', c: true },
+        { t: 'Fornire le credenziali per verificare l\'identità come richiesto', c: false },
+        { t: 'Richiamare il numero da cui è arrivata la chiamata per conferma', c: false },
+        { t: 'Continuare la conversazione senza fornire dati, per curiosità', c: false }
+      ],
+      tech: { code: 'T1684.001', name: 'Impersonation', text: "L'attaccante sfrutta un canale vocale e informazioni di contesto per costruire fiducia e indirizzare la vittima verso il portale contraffatto." }
+    },
+    { label: 'Esito',
+      briefing: `Il log del gateway VPN registra un accesso riuscito subito dopo la telefonata.`,
+      feed: ['08:10:02 — AUTH_SUCCESS — user=vittima — src=82.50.12.9 (postazione nota)','11:47:55 — AUTH_SUCCESS — user=vittima — src=203.0.113.88 — session=VPN-2291'],
+      checklist: [
+        { t: "L'IP dell'accesso è nuovo rispetto agli accessi abituali della vittima", c: true },
+        { t: "L'accesso avviene subito dopo la telefonata", c: true },
+        { t: 'Il codice della pagina phishing instrada le credenziali verso un dominio esterno', c: true },
+        { t: "L'orario è compatibile con l'attività lavorativa abituale", c: false },
+        { t: 'Lo username coincide con quello utilizzato in precedenza', c: false }
+      ],
+      choices: [
+        { t: 'Revocare l\'accesso, resettare le credenziali e bloccare il dominio phishing', c: true },
+        { t: 'Attendere ulteriori accessi per avere conferma', c: false },
+        { t: "Notificare solo l'utente via email", c: false },
+        { t: "Nessuna azione, l'accesso è avvenuto con credenziali valide", c: false }
+      ],
+      tech: { code: 'T1078', name: 'Valid Accounts', text: "Come nello Scenario 1, il superamento dell'autenticazione rende l'accesso indistinguibile da uno legittimo senza correlazione temporale con gli eventi precedenti." }
+    }
+  ]},
+
+  { id: 'tecnimont', title: 'Scenario 4 — Tecnimont', subtitle: 'Business Email Compromise', phases: [
+    { label: 'Email CEO contraffatta',
+      briefing: `Un messaggio a nome del CEO richiede l'esecuzione urgente di un bonifico, con toni di autorità e urgenza.`,
+      feed: ['From: CEO <ceo@tecnimont.com>','Return-Path: <ops@tecnlmont.com>','Auth-Results: spf=fail dkim=fail dmarc=fail'],
+      checklist: [
+        { t: 'Il campo Return-Path rimanda a un dominio diverso da quello ufficiale', c: true },
+        { t: 'I controlli SPF, DKIM e DMARC risultano falliti', c: true },
+        { t: 'Il dominio del mittente utilizza typosquatting ad alta somiglianza visiva', c: true },
+        { t: 'Il messaggio è firmato digitalmente con certificato valido', c: false },
+        { t: 'Il messaggio proviene da un indirizzo interno noto', c: false }
+      ],
+      choices: [
+        { t: "Verificare l'autenticità tramite un canale indipendente prima di procedere", c: true },
+        { t: 'Inoltrare la direttiva al reparto competente senza ulteriori verifiche', c: false },
+        { t: 'Rispondere direttamente chiedendo conferma', c: false },
+        { t: "Eseguire la direttiva vista l'urgenza", c: false }
+      ],
+      tech: { code: 'T1656', name: 'Impersonation', text: "Il dominio typosquattato, visivamente quasi identico all'originale, è pensato per superare un controllo visivo superficiale del client di posta." }
+    },
+    { label: 'Finta conference call',
+      briefing: `Una riunione telefonica introduce un sedicente consulente legale a supporto della richiesta, facendo pressione per derogare alle procedure.`,
+      feed: [
+        { from: 'Consulente legale', text: 'La operazione richiede la massima riservatezza, non può passare per i canali abituali.' },
+        { from: 'CEO (voce)', text: 'Confermo, procediamo senza la doppia firma per questa volta.' }
+      ],
+      checklist: [
+        { t: 'Viene introdotta la figura di un consulente legale non verificabile', c: true },
+        { t: 'Si richiede di derogare alla procedura di doppia firma', c: true },
+        { t: "Viene fatta pressione sulla riservatezza dell'operazione", c: true },
+        { t: 'La riunione è stata pianificata con largo anticipo', c: false },
+        { t: 'Tutti i partecipanti sono identificabili tramite canali aziendali noti', c: false }
+      ],
+      choices: [
+        { t: 'Rifiutare la deroga e seguire comunque la procedura di doppia firma', c: true },
+        { t: "Accettare la deroga vista l'autorità dichiarata dei partecipanti", c: false },
+        { t: "Chiedere un secondo parere solo dopo l'operazione", c: false },
+        { t: 'Procedere e documentare successivamente', c: false }
+      ],
+      tech: { code: 'Pretexting', name: 'CSE Kill Chain', text: "La combinazione di autorità percepita, urgenza e riservatezza è la leva psicologica centrale di questa fase, priva di tecnica MITRE dedicata ma ben descritta dalla Cyber Social Engineering Kill Chain." }
+    },
+    { label: 'Esito',
+      briefing: `Il registro del sistema SWIFT documenta l'esecuzione del bonifico.`,
+      feed: ['swift_transfer_log.pdf','Doppia approvazione: NON eseguita','Beneficiario: non presente tra i fornitori abituali'],
+      checklist: [
+        { t: 'Il trasferimento è stato eseguito senza la doppia approvazione prevista', c: true },
+        { t: 'Il beneficiario non è tra i fornitori abituali', c: true },
+        { t: "L'importo è compatibile con la soglia dichiarata nella direttiva contraffatta", c: true },
+        { t: 'Il trasferimento è avvenuto in orario lavorativo', c: false },
+        { t: 'Il numero di conto beneficiario è italiano', c: false }
+      ],
+      choices: [
+        { t: 'Bloccare il trasferimento se possibile e avviare la segnalazione bancaria e al CERT', c: true },
+        { t: 'Attendere conferma dal CEO reale prima di agire', c: false },
+        { t: "Considerare l'operazione conclusa e archiviare", c: false },
+        { t: 'Contattare il consulente legale menzionato per chiarimenti', c: false }
+      ],
+      tech: { code: 'T1657', name: 'Financial Theft', text: "Il bypass della doppia approvazione, ottenuto tramite pressione psicologica nella fase precedente, è la condizione che rende possibile il trasferimento fraudolento." }
+    }
+  ]},
+
+  { id: 'lazio', title: 'Scenario 5 — Regione Lazio', subtitle: 'Ransomware su infrastruttura', phases: [
+    { label: 'Phishing e accesso VPN',
+      briefing: `Un'email sfrutta l'urgenza di un aggiornamento del client VPN per indurre l'amministratore di rete a inserire le proprie credenziali su un portale contraffatto.`,
+      feed: ['phishing_lure.eml — "Aggiornamento urgente client VPN richiesto"','09:41:02 — AUTH_SUCCESS — user=admin.rete — src=194.28.10.4 — session=VPN-9931 (IP anomalo)'],
+      checklist: [
+        { t: "L'email sfrutta l'urgenza di un aggiornamento del client VPN", c: true },
+        { t: 'Il link porta a un portale di autenticazione non ufficiale', c: true },
+        { t: "Il log VPN mostra un accesso da un IP anomalo subito dopo l'invio dell'email", c: true },
+        { t: "L'email è firmata digitalmente", c: false },
+        { t: 'Il destinatario è un utente generico, non un amministratore', c: false }
+      ],
+      choices: [
+        { t: "Revocare le credenziali compromesse e bloccare l'IP di origine", c: true },
+        { t: 'Attendere ulteriori segnali prima di agire', c: false },
+        { t: "Notificare solo l'utente coinvolto", c: false },
+        { t: "Nessuna azione, l'accesso è avvenuto con credenziali valide", c: false }
+      ],
+      tech: { code: 'T1566.002', name: 'Spearphishing Link', text: "Il pretesto tecnico (aggiornamento urgente) e il bersaglio privilegiato (un amministratore di rete) massimizzano l'impatto potenziale dell'accesso ottenuto." }
+    },
+    { label: 'Movimento laterale',
+      briefing: `Nel Domain Controller viene rilevata la creazione di una Group Policy non riconducibile alle procedure standard.`,
+      feed: ['windows_security_audit.log','Event ID 4624 — accesso standard (rumore)','Event ID 4627 — aggiornamento policy generico (rumore)','Event ID 5136 — Directory Service Changes — GPO_Emergency_Patch_KB99812'],
+      checklist: [
+        { t: 'Viene creata una nuova Group Policy non riconducibile alle procedure standard', c: true },
+        { t: "L'evento di modifica in Active Directory è isolato tra eventi di routine", c: true },
+        { t: 'La GPO viene distribuita a tutti gli host del dominio', c: true },
+        { t: 'Gli eventi di accesso standard nel log sono tutti sospetti', c: false },
+        { t: 'La GPO è firmata da un amministratore noto e autorizzato', c: false }
+      ],
+      choices: [
+        { t: 'Isolare la GPO malevola, revocarla e avviare threat hunting sugli host coinvolti', c: true },
+        { t: 'Attendere la prossima finestra di manutenzione per intervenire', c: false },
+        { t: 'Ignorare, le GPO cambiano regolarmente', c: false },
+        { t: 'Notificare solo il fornitore del software', c: false }
+      ],
+      tech: { code: 'T1484.001', name: 'Group Policy Modification', text: "La distribuzione tramite GPO consente all'attaccante di propagare il payload a tutti gli host del dominio con un'unica azione centralizzata." }
+    },
+    { label: 'Esito',
+      briefing: `Un report di triage forense documenta l'impatto distruttivo sugli endpoint colpiti.`,
+      feed: ['encrypted_host_triage.txt','vssadmin delete shadows /all /quiet — eseguito','bcdedit /set {default} recoveryenabled no — eseguito','Stato file system: cifrato'],
+      checklist: [
+        { t: 'Sono stati eseguiti comandi per inibire il ripristino di sistema (vssadmin, bcdedit)', c: true },
+        { t: 'Il file system risulta cifrato sugli host coinvolti', c: true },
+        { t: 'La cifratura è avvenuta dopo la distribuzione della GPO malevola', c: true },
+        { t: 'Il ripristino automatico da backup è stato completato con successo prima della cifratura', c: false },
+        { t: 'Solo un singolo host isolato è stato colpito', c: false }
+      ],
+      choices: [
+        { t: 'Isolare la rete, attivare il piano di incident response e ripristinare da backup offline', c: true },
+        { t: 'Pagare il riscatto per ripristinare rapidamente i sistemi', c: false },
+        { t: 'Attendere che il problema si risolva autonomamente', c: false },
+        { t: 'Riavviare gli host senza ulteriori verifiche', c: false }
+      ],
+      tech: { code: 'T1486', name: 'Data Encrypted for Impact', text: "L'inibizione del ripristino prima della cifratura è una scelta deliberata dell'attaccante per massimizzare la pressione verso il pagamento del riscatto." }
+    }
+  ]}
+];
+
+// ============ STATO E PERSISTENZA ============
+const STORAGE_KEY = 'labscenari_progress';
+function loadState() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { return {}; } }
+function saveState(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch (e) {} }
 let state = loadState();
 
-function setActivePhase(n, label) {
-  document.getElementById('statusLine').textContent = `fase ${n} di 3`;
-  document.querySelectorAll('.phase-item').forEach((el, i) => {
-    el.classList.toggle('active', i === n - 1);
+function getScenario(id) { return SCENARIOS.find(s => s.id === id); }
+function getPhaseState(scenarioId, phaseIdx) { return (state[scenarioId] || {})['p' + phaseIdx]; }
+function setPhaseState(scenarioId, phaseIdx, data) {
+  if (!state[scenarioId]) state[scenarioId] = {};
+  state[scenarioId]['p' + phaseIdx] = data;
+  saveState(state);
+}
+function scenarioStats(sc) {
+  const st = state[sc.id] || {};
+  const done = sc.phases.map((p, i) => st['p' + i]).filter(Boolean);
+  const avg = done.length ? Math.round(done.reduce((a, d) => a + d.score, 0) / done.length) : null;
+  return { completedCount: done.length, total: sc.phases.length, avg };
+}
+
+const main = document.getElementById('mainView');
+function statusText(t) { document.getElementById('statusLine').textContent = t; }
+
+// ============ NAVIGAZIONE ============
+function renderNav(currentScenarioId) {
+  const nav = document.getElementById('navList');
+  let html = `<div class="nav-item ${!currentScenarioId ? 'active' : ''}" data-go="home">Scenari</div>`;
+  if (currentScenarioId) {
+    const sc = getScenario(currentScenarioId);
+    html += `<div class="nav-sub">${sc.title}</div>`;
+    sc.phases.forEach((p, i) => {
+      const done = !!getPhaseState(sc.id, i);
+      html += `<div class="nav-item phase ${done ? 'done' : ''}" data-go="phase" data-scenario="${sc.id}" data-phase="${i}">${i + 1}. ${p.label}${done ? ' ✓' : ''}</div>`;
+    });
+  }
+  html += `<div class="nav-item" data-go="report">Rapporto</div>`;
+  nav.innerHTML = html;
+  nav.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const go = el.dataset.go;
+      if (go === 'home') renderHome();
+      else if (go === 'report') renderReport();
+      else if (go === 'phase') openPhase(el.dataset.scenario, Number(el.dataset.phase));
+    });
   });
 }
 
-// --- definizione Fase 1 ---
-const phase1 = {
-  briefing: `Sono le 09:12. Sul telefono dell'amministratore di rete inizia ad arrivare una serie
-  di notifiche push per l'autenticazione a più fattori, non richieste da nessun accesso volontario.`,
-  feed: [
-    '09:12:04 — richiesta MFA — respinta',
-    '09:14:51 — richiesta MFA — respinta',
-    '09:19:23 — richiesta MFA — respinta',
-    '09:23:47 — richiesta MFA — respinta',
-    '09:28:10 — richiesta MFA — respinta'
-  ],
-  checklist: [
-    { id: 'c1', label: "Le richieste non sono state generate da un accesso volontario dell'utente", correct: true },
-    { id: 'c2', label: 'Le notifiche si ripetono a distanza di pochi minuti l\'una dall\'altra', correct: true },
-    { id: 'c3', label: 'Non è arrivata nessuna comunicazione ufficiale che annunci un controllo di sicurezza', correct: true },
-    { id: 'c4', label: 'L\'orario è compatibile con il normale accesso mattutino', correct: false },
-    { id: 'c5', label: 'Il nome dell\'app di autenticazione mostrata è quello ufficiale aziendale', correct: false }
-  ],
-  choices: [
-    { id: 'a', label: 'Rifiuta tutte le richieste e segnala subito l\'anomalia all\'IT', correct: true },
-    { id: 'b', label: 'Approva l\'ultima richiesta per far smettere le notifiche', correct: false },
-    { id: 'c', label: 'Ignora le notifiche, si fermeranno da sole', correct: false },
-    { id: 'd', label: 'Contatta l\'IT solo se continuano per più di un\'ora', correct: false }
-  ]
-};
-
-function renderPhase1() {
-    setActivePhase(1);
-  const main = document.getElementById('mainView');
+// ============ HOME ============
+function renderHome() {
+  renderNav(null);
+  statusText('seleziona uno scenario');
+  const cards = SCENARIOS.map(sc => {
+    const { completedCount, total, avg } = scenarioStats(sc);
+    const badge = completedCount === total ? `<span class="badge done">completato — ${avg}%</span>`
+      : completedCount > 0 ? `<span class="badge partial">${completedCount}/${total} fasi</span>`
+      : `<span class="badge">da iniziare</span>`;
+    return `<div class="scenario-card" data-scenario="${sc.id}">
+      <div class="sc-title">${sc.title}</div>
+      <div class="sc-subtitle">${sc.subtitle}</div>
+      ${badge}
+    </div>`;
+  }).join('');
   main.innerHTML = `
-    <div class="brief">${phase1.briefing}</div>
-    <div class="feed">
-      ${phase1.feed.map(r => `<div class="row"><span>${r}</span></div>`).join('')}
-    </div>
+    <div class="brief">Seleziona uno scenario per iniziare il percorso investigativo. I progressi restano salvati su questo browser.</div>
+    <div class="scenario-grid">${cards}</div>
+  `;
+  main.querySelectorAll('.scenario-card').forEach(el => el.addEventListener('click', () => openPhase(el.dataset.scenario, 0)));
+}
+
+// ============ FASE ============
+function renderFeedItem(item) {
+  if (typeof item === 'string') return `<div class="row"><span>${item}</span></div>`;
+  return `<div class="row"><span><strong>${item.from}:</strong> ${item.text}</span></div>`;
+}
+
+function openPhase(scenarioId, phaseIdx) {
+  renderNav(scenarioId);
+  const sc = getScenario(scenarioId);
+  statusText(`${sc.title} — fase ${phaseIdx + 1} di ${sc.phases.length}`);
+  const saved = getPhaseState(scenarioId, phaseIdx);
+  if (saved) renderDebriefView(scenarioId, phaseIdx, saved);
+  else renderPhaseView(scenarioId, phaseIdx);
+}
+
+function renderPhaseView(scenarioId, phaseIdx) {
+  const sc = getScenario(scenarioId);
+  const phase = sc.phases[phaseIdx];
+  main.innerHTML = `
+    <div class="brief">${phase.briefing}</div>
+    <div class="feed">${phase.feed.map(renderFeedItem).join('')}</div>
     <div class="qblock">
       <h3>Quali elementi richiedono attenzione?</h3>
-      ${phase1.checklist.map(c => `
-        <label class="opt"><input type="checkbox" name="check" value="${c.id}"> ${c.label}</label>
-      `).join('')}
+      ${phase.checklist.map((c, i) => `<label class="opt"><input type="checkbox" name="check" value="${i}"> ${c.t}</label>`).join('')}
     </div>
     <div class="qblock">
       <h3>Quale azione intraprenderesti?</h3>
-      ${phase1.choices.map(c => `
-        <label class="opt"><input type="radio" name="choice" value="${c.id}"> ${c.label}</label>
-      `).join('')}
+      ${phase.choices.map((c, i) => `<label class="opt"><input type="radio" name="choice" value="${i}"> ${c.t}</label>`).join('')}
     </div>
     <button class="primary" id="confirmBtn">Conferma scelte</button>
   `;
-  document.getElementById('confirmBtn').addEventListener('click', evaluatePhase1);
+  document.getElementById('confirmBtn').addEventListener('click', () => evaluatePhase(scenarioId, phaseIdx));
 }
 
-function evaluatePhase1() {
-  const checked = Array.from(document.querySelectorAll('input[name="check"]:checked')).map(i => i.value);
+function evaluatePhase(scenarioId, phaseIdx) {
+  const sc = getScenario(scenarioId);
+  const phase = sc.phases[phaseIdx];
+  const checked = Array.from(document.querySelectorAll('input[name="check"]:checked')).map(i => Number(i.value));
   const chosen = document.querySelector('input[name="choice"]:checked');
 
-  const truePositives = phase1.checklist.filter(c => c.correct && checked.includes(c.id)).length;
-  const falsePositives = phase1.checklist.filter(c => !c.correct && checked.includes(c.id)).length;
-  const totalCorrectIndicators = phase1.checklist.filter(c => c.correct).length;
-  const choiceCorrect = chosen && phase1.choices.find(c => c.id === chosen.value)?.correct;
+  const tp = phase.checklist.filter((c, i) => c.c && checked.includes(i)).length;
+  const fp = phase.checklist.filter((c, i) => !c.c && checked.includes(i)).length;
+  const totalCorrect = phase.checklist.filter(c => c.c).length;
+  const choiceCorrect = chosen ? !!phase.choices[Number(chosen.value)].c : false;
 
-  const indicatorScore = Math.max(0, (truePositives - falsePositives) / totalCorrectIndicators);
+  const indicatorScore = Math.max(0, (tp - fp) / totalCorrect);
   const score = Math.round(((indicatorScore + (choiceCorrect ? 1 : 0)) / 2) * 100);
 
-  state.phase1 = { score, truePositives, falsePositives, choiceCorrect: !!choiceCorrect };
-  saveState(state);
-  renderDebrief1(score, truePositives, falsePositives, choiceCorrect);
+  const data = { score, tp, fp, choiceCorrect };
+  setPhaseState(scenarioId, phaseIdx, data);
+  renderDebriefView(scenarioId, phaseIdx, data);
 }
 
-function renderDebrief1(score, tp, fp, choiceCorrect) {
-  const main = document.getElementById('mainView');
+function renderDebriefView(scenarioId, phaseIdx, data) {
+  const sc = getScenario(scenarioId);
+  const phase = sc.phases[phaseIdx];
+  const isLast = phaseIdx === sc.phases.length - 1;
   main.innerHTML = `
     <div class="debrief">
-      <div class="score">${score}%</div>
-      <div>${tp} indicatori corretti rilevati · ${fp} falsi positivi · decisione ${choiceCorrect ? 'corretta' : 'da rivedere'}</div>
+      <div class="score">${data.score}%</div>
+      <div>${data.tp} indicatori corretti rilevati · ${data.fp} falsi positivi · decisione ${data.choiceCorrect ? 'corretta' : 'da rivedere'}</div>
       <div class="cols">
-        <div>
-          <h4>Indicatori decisivi</h4>
-          <ul>${phase1.checklist.filter(c => c.correct).map(c => `<li>${c.label}</li>`).join('')}</ul>
-        </div>
-        <div>
-          <h4>Tecnica impiegata</h4>
-          <p style="font-size:13px;line-height:1.6;">MITRE ATT&amp;CK T1621 — MFA Request Generation.
-          L'attaccante genera richieste ripetute confidando nella fatica dell'utente, che finisce per
-          approvarne una solo per far cessare le notifiche.</p>
-        </div>
+        <div><h4>Indicatori decisivi</h4><ul>${phase.checklist.filter(c => c.c).map(c => `<li>${c.t}</li>`).join('')}</ul></div>
+        <div><h4>Tecnica impiegata</h4><p style="font-size:13px;line-height:1.6;"><strong>${phase.tech.code} — ${phase.tech.name}.</strong> ${phase.tech.text}</p></div>
       </div>
       <div style="margin-top:18px;">
-        <button class="primary" id="nextBtn1">Fase successiva</button>
+        ${!isLast ? `<button class="primary" id="nextBtn">Fase successiva</button>` : `<button class="primary" id="toReportBtn">Vai al rapporto</button>`}
         <button class="secondary" id="repeatBtn">Ripeti fase</button>
+        <button class="secondary" id="homeBtn">Torna al menu</button>
       </div>
     </div>
   `;
-  document.getElementById('repeatBtn').addEventListener('click', renderPhase1);
-    document.getElementById('nextBtn1').addEventListener('click', renderPhase2);
-  document.querySelectorAll('.phase-item')[0].classList.add('done');
+  document.getElementById('repeatBtn').addEventListener('click', () => renderPhaseView(scenarioId, phaseIdx));
+  document.getElementById('homeBtn').addEventListener('click', renderHome);
+  if (!isLast) document.getElementById('nextBtn').addEventListener('click', () => openPhase(scenarioId, phaseIdx + 1));
+  else document.getElementById('toReportBtn').addEventListener('click', renderReport);
 }
 
-// avvio
-goToPhase(1);
-
-// --- definizione Fase 2 ---
-const phase2 = {
-  briefing: `Sono le 09:35. Un operatore che si presenta come "IT Support Desk" contatta la vittima
-  in chat, proprio mentre le notifiche MFA continuano ad arrivare.`,
-  chat: [
-    { from: 'IT-SUPPORT-DESK', text: 'Buongiorno, la contatto dal supporto IT centrale. Abbiamo rilevato tentativi di accesso sospetti sul suo account e stiamo forzando un ricontrollo MFA.' },
-    { from: 'utente.rossi', text: 'Ok, ma non ho richiesto nulla io' },
-    { from: 'IT-SUPPORT-DESK', text: 'Lo so, è la procedura automatica di verifica. Le arriveranno delle notifiche sul telefono, le chiedo di approvarle così chiudiamo il ticket prima che le venga bloccato l\'accesso VPN.' },
-    { from: 'utente.rossi', text: 'Ne ho già rifiutate parecchie prima' },
-    { from: 'IT-SUPPORT-DESK', text: 'Esatto, è il sistema che ritenta. L\'ultima che arriva è quella buona per la chiusura ticket, quella la approvi pure.' }
-  ],
-  checklist: [
-    { id: 'c1', label: 'L\'operatore non fornisce alcun numero di ticket verificabile', correct: true },
-    { id: 'c2', label: 'Chiede di approvare una notifica già in corso, non di generarne una nuova tramite procedura ufficiale', correct: true },
-    { id: 'c3', label: 'Il contatto avviene su un canale chat non riconducibile ai sistemi IT ufficiali', correct: true },
-    { id: 'c4', label: 'Il tono è cortese e professionale', correct: false },
-    { id: 'c5', label: 'L\'operatore conosce già lo username dell\'utente', correct: false }
-  ],
-  choices: [
-    { id: 'a', label: 'Interrompi la conversazione e verifica l\'identità dell\'operatore chiamando il numero IT ufficiale già noto', correct: true },
-    { id: 'b', label: 'Approva la prossima notifica per chiudere subito il ticket', correct: false },
-    { id: 'c', label: 'Chiedi il nome completo dell\'operatore e continua a seguirlo', correct: false },
-    { id: 'd', label: 'Segui le istruzioni ma senza approvare nulla, per sicurezza', correct: false }
-  ]
-};
-
-function renderPhase2() {
-      setActivePhase(2);
-  const main = document.getElementById('mainView');
-  main.innerHTML = `
-    <div class="brief">${phase2.briefing}</div>
-    <div class="feed">
-      ${phase2.chat.map(m => `<div class="row"><span><strong>${m.from}:</strong> ${m.text}</span></div>`).join('')}
-    </div>
-    <div class="qblock">
-      <h3>Quali elementi richiedono attenzione?</h3>
-      ${phase2.checklist.map(c => `<label class="opt"><input type="checkbox" name="check2" value="${c.id}"> ${c.label}</label>`).join('')}
-    </div>
-    <div class="qblock">
-      <h3>Quale azione intraprenderesti?</h3>
-      ${phase2.choices.map(c => `<label class="opt"><input type="radio" name="choice2" value="${c.id}"> ${c.label}</label>`).join('')}
-    </div>
-    <button class="primary" id="confirmBtn2">Conferma scelte</button>
-  `;
-  document.getElementById('confirmBtn2').addEventListener('click', evaluatePhase2);
-}
-
-function evaluatePhase2() {
-  const checked = Array.from(document.querySelectorAll('input[name="check2"]:checked')).map(i => i.value);
-  const chosen = document.querySelector('input[name="choice2"]:checked');
-
-  const truePositives = phase2.checklist.filter(c => c.correct && checked.includes(c.id)).length;
-  const falsePositives = phase2.checklist.filter(c => !c.correct && checked.includes(c.id)).length;
-  const totalCorrectIndicators = phase2.checklist.filter(c => c.correct).length;
-  const choiceCorrect = chosen && phase2.choices.find(c => c.id === chosen.value)?.correct;
-
-  const indicatorScore = Math.max(0, (truePositives - falsePositives) / totalCorrectIndicators);
-  const score = Math.round(((indicatorScore + (choiceCorrect ? 1 : 0)) / 2) * 100);
-
-  state.phase2 = { score, truePositives, falsePositives, choiceCorrect: !!choiceCorrect };
-  saveState(state);
-  renderDebrief2(score, truePositives, falsePositives, choiceCorrect);
-}
-
-function renderDebrief2(score, tp, fp, choiceCorrect) {
-  const main = document.getElementById('mainView');
-  main.innerHTML = `
-    <div class="debrief">
-      <div class="score">${score}%</div>
-      <div>${tp} indicatori corretti rilevati · ${fp} falsi positivi · decisione ${choiceCorrect ? 'corretta' : 'da rivedere'}</div>
-      <div class="cols">
-        <div>
-          <h4>Indicatori decisivi</h4>
-          <ul>${phase2.checklist.filter(c => c.correct).map(c => `<li>${c.label}</li>`).join('')}</ul>
-        </div>
-        <div>
-          <h4>Tecnica impiegata</h4>
-          <p style="font-size:13px;line-height:1.6;">MITRE ATT&amp;CK T1656 — Impersonation.
-          L'attaccante si finge un ruolo di fiducia (supporto IT) per fornire un pretesto tecnico
-          plausibile nel momento esatto in cui la vittima è più vulnerabile alla richiesta.</p>
-        </div>
-      </div>
-      <div style="margin-top:18px;">
-        <button class="primary" id="nextBtn2">Fase successiva</button>
-        <button class="secondary" id="repeatBtn2">Ripeti fase</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('repeatBtn2').addEventListener('click', renderPhase2);
-    document.getElementById('nextBtn2').addEventListener('click', renderPhase3);
-  document.querySelectorAll('.phase-item')[1].classList.add('done');
-}
-
-// --- definizione Fase 3 ---
-const phase3 = {
-  briefing: `Sono le 09:37:30. Il sistema di accesso remoto registra un'autenticazione riuscita,
-  immediatamente dopo l'approvazione MFA forzata della Fase 2.`,
-  feed: [
-    "08:47:15 — AUTH_SUCCESS — user=prof.rossi — src=90.147.22.6 (postazione nota)",
-    "09:12:04 — AUTH_FAILURE — user=utente.rossi — src=185.14.22.90 — reason=MFA_TIMEOUT",
-    "09:37:30 — AUTH_SUCCESS — user=utente.rossi — src=185.14.22.90 — session=VPN-8841"
-  ],
-  checklist: [
-    { id: 'c1', label: "L'IP dell'accesso riuscito coincide con quello del tentativo fallito delle 09:12", correct: true },
-    { id: 'c2', label: "L'accesso avviene esattamente 30 secondi dopo l'approvazione MFA forzata", correct: true },
-    { id: 'c3', label: "L'IP è diverso da quello della postazione abituale nota (prof.rossi)", correct: true },
-    { id: 'c4', label: "L'orario rientra nel normale orario lavorativo", correct: false },
-    { id: 'c5', label: "Lo username coincide con quello dell'accesso precedente legittimo", correct: false }
-  ],
-  choices: [
-    { id: 'a', label: 'Revoca subito la sessione attiva, blocca l\'account e avvia la procedura di incident response', correct: true },
-    { id: 'b', label: 'Attendi il prossimo tentativo di accesso per avere conferma', correct: false },
-    { id: 'c', label: "Contatta l'utente via email per chiedere se è stato lui", correct: false },
-    { id: 'd', label: "Nessuna azione necessaria, l'MFA è stata approvata regolarmente", correct: false }
-  ]
-};
-
-function renderPhase3() {
-  setActivePhase(3);
-  const main = document.getElementById('mainView');
-  main.innerHTML = `
-    <div class="brief">${phase3.briefing}</div>
-    <div class="feed">
-      ${phase3.feed.map(r => `<div class="row"><span>${r}</span></div>`).join('')}
-    </div>
-    <div class="qblock">
-      <h3>Quali elementi richiedono attenzione?</h3>
-      ${phase3.checklist.map(c => `<label class="opt"><input type="checkbox" name="check3" value="${c.id}"> ${c.label}</label>`).join('')}
-    </div>
-    <div class="qblock">
-      <h3>Quale azione intraprenderesti ora?</h3>
-      ${phase3.choices.map(c => `<label class="opt"><input type="radio" name="choice3" value="${c.id}"> ${c.label}</label>`).join('')}
-    </div>
-    <button class="primary" id="confirmBtn3">Conferma scelte</button>
-  `;
-  document.getElementById('confirmBtn3').addEventListener('click', evaluatePhase3);
-}
-
-function evaluatePhase3() {
-  const checked = Array.from(document.querySelectorAll('input[name="check3"]:checked')).map(i => i.value);
-  const chosen = document.querySelector('input[name="choice3"]:checked');
-
-  const truePositives = phase3.checklist.filter(c => c.correct && checked.includes(c.id)).length;
-  const falsePositives = phase3.checklist.filter(c => !c.correct && checked.includes(c.id)).length;
-  const totalCorrectIndicators = phase3.checklist.filter(c => c.correct).length;
-  const choiceCorrect = chosen && phase3.choices.find(c => c.id === chosen.value)?.correct;
-
-  const indicatorScore = Math.max(0, (truePositives - falsePositives) / totalCorrectIndicators);
-  const score = Math.round(((indicatorScore + (choiceCorrect ? 1 : 0)) / 2) * 100);
-
-  state.phase3 = { score, truePositives, falsePositives, choiceCorrect: !!choiceCorrect };
-  saveState(state);
-  renderDebrief3(score, truePositives, falsePositives, choiceCorrect);
-}
-
-function renderDebrief3(score, tp, fp, choiceCorrect) {
-  const main = document.getElementById('mainView');
-  main.innerHTML = `
-    <div class="debrief">
-      <div class="score">${score}%</div>
-      <div>${tp} indicatori corretti rilevati · ${fp} falsi positivi · decisione ${choiceCorrect ? 'corretta' : 'da rivedere'}</div>
-      <div class="cols">
-        <div>
-          <h4>Indicatori decisivi</h4>
-          <ul>${phase3.checklist.filter(c => c.correct).map(c => `<li>${c.label}</li>`).join('')}</ul>
-        </div>
-        <div>
-          <h4>Tecnica impiegata</h4>
-          <p style="font-size:13px;line-height:1.6;">MITRE ATT&amp;CK T1078 — Valid Accounts.
-          Superata la MFA, l'attaccante accede con credenziali formalmente valide: da questo momento
-          il traffico appare legittimo ai sistemi di controllo, il che rende la correlazione temporale
-          tra i log l'unico modo per individuare la compromissione.</p>
-        </div>
-      </div>
-      <div style="margin-top:18px;">
-        <button class="primary" id="finishBtn">Vai al rapporto finale</button>
-        <button class="secondary" id="repeatBtn3">Ripeti fase</button>
-      </div>
-    </div>
-  `;
-  document.getElementById('repeatBtn3').addEventListener('click', renderPhase3);
-  document.getElementById('finishBtn').addEventListener('click', () => goToPhase(4));
-  document.querySelectorAll('.phase-item')[2].classList.add('done');
-}
-
-// --- navigazione tra fasi (permette anche di rivedere quelle già completate) ---
-function goToPhase(n) {
-  if (n === 1) {
-    setActivePhase(1);
-    state.phase1
-      ? renderDebrief1(state.phase1.score, state.phase1.truePositives, state.phase1.falsePositives, state.phase1.choiceCorrect)
-      : renderPhase1();
-  } else if (n === 2) {
-    if (!state.phase1) { alert('Completa prima la Fase 1.'); return; }
-    setActivePhase(2);
-    state.phase2
-      ? renderDebrief2(state.phase2.score, state.phase2.truePositives, state.phase2.falsePositives, state.phase2.choiceCorrect)
-      : renderPhase2();
-  } else if (n === 3) {
-    if (!state.phase2) { alert('Completa prima la Fase 2.'); return; }
-    setActivePhase(3);
-    state.phase3
-      ? renderDebrief3(state.phase3.score, state.phase3.truePositives, state.phase3.falsePositives, state.phase3.choiceCorrect)
-      : renderPhase3();
-  } else if (n === 4) {
-    renderReport();
-  }
-}
-
-// rende cliccabili le voci del menu laterale
-document.querySelectorAll('.phase-item').forEach(item => {
-  item.style.cursor = 'pointer';
-  item.addEventListener('click', () => goToPhase(Number(item.dataset.phase)));
-});
-
-// --- Rapporto finale ---
+// ============ RAPPORTO ============
 function renderReport() {
-  setActivePhase(4);
-  const main = document.getElementById('mainView');
-  const phases = [
-    { key: 'phase1', label: 'MFA Fatigue', tech: 'T1621', go: 1 },
-    { key: 'phase2', label: 'Contatto Help Desk', tech: 'T1656', go: 2 },
-    { key: 'phase3', label: 'Esito', tech: 'T1078', go: 3 }
-  ];
-  const done = phases.filter(p => state[p.key]);
-  const avg = done.length
-    ? Math.round(done.reduce((sum, p) => sum + state[p.key].score, 0) / done.length)
-    : 0;
+  renderNav(null);
+  statusText('rapporto complessivo');
+  const rows = SCENARIOS.map(sc => {
+    const { completedCount, total, avg } = scenarioStats(sc);
+    return `<div style="border-top:1px solid var(--line); padding-top:12px; margin-top:14px;">
+      <h4 style="margin-bottom:4px;">${sc.title}</h4>
+      <p style="font-size:13px;">${completedCount}/${total} fasi completate${avg !== null ? ` · punteggio medio ${avg}%` : ''}</p>
+      <button class="secondary reopen" data-scenario="${sc.id}">Apri scenario</button>
+    </div>`;
+  }).join('');
+
+  const allDone = SCENARIOS.flatMap(sc => sc.phases.map((p, i) => getPhaseState(sc.id, i))).filter(Boolean);
+  const totalPhases = SCENARIOS.reduce((a, s) => a + s.phases.length, 0);
+  const overall = allDone.length ? Math.round(allDone.reduce((a, d) => a + d.score, 0) / allDone.length) : 0;
 
   main.innerHTML = `
-    <div class="brief">
-      Fascicolo chiuso. Il rapporto riassume il percorso investigativo sui tre momenti chiave
-      dell'incidente: individuazione della MFA fatigue, riconoscimento del pretesto dell'help desk
-      fasullo, reazione alla compromissione dell'accesso.
-    </div>
+    <div class="brief">Il rapporto riassume i risultati raccolti su questo browser per tutti gli scenari svolti.</div>
     <div class="debrief">
-      <div class="score">${avg}%</div>
-      <div>punteggio medio su ${done.length} di 3 fasi completate</div>
-      ${phases.map(p => {
-        const d = state[p.key];
-        return `
-          <div style="border-top:1px solid var(--line); padding-top:12px; margin-top:14px;">
-            <h4 style="margin-bottom:4px;">${p.label} — ${p.tech}</h4>
-            ${d
-              ? `<p style="font-size:13px;">Punteggio: ${d.score}% · ${d.truePositives} indicatori corretti · ${d.falsePositives} falsi positivi · decisione ${d.choiceCorrect ? 'corretta' : 'da rivedere'}</p>
-                 <button class="secondary reopen" data-goto="${p.go}">Rivedi fase</button>`
-              : `<p style="font-size:13px; color:var(--ink-dim);">Non ancora completata.</p>`
-            }
-          </div>`;
-      }).join('')}
+      <div class="score">${overall}%</div>
+      <div>punteggio medio complessivo su ${allDone.length} fasi completate (su ${totalPhases} totali)</div>
+      ${rows}
       <div style="margin-top:20px;">
         <button class="secondary" id="exportBtn">Esporta rapporto JSON</button>
         <button class="secondary" id="resetBtn">Azzera sessione</button>
       </div>
     </div>
   `;
-
-  document.querySelectorAll('.reopen').forEach(btn => {
-    btn.addEventListener('click', () => goToPhase(Number(btn.dataset.goto)));
-  });
-
+  main.querySelectorAll('.reopen').forEach(btn => btn.addEventListener('click', () => openPhase(btn.dataset.scenario, 0)));
   document.getElementById('exportBtn').addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'rapporto_scenario1.json';
-    a.click();
+    const a = document.createElement('a'); a.href = url; a.download = 'rapporto_laboratorio.json'; a.click();
     URL.revokeObjectURL(url);
   });
-
   document.getElementById('resetBtn').addEventListener('click', () => {
-    if (confirm('Azzerare tutti i risultati salvati su questo browser?')) {
-      state = {};
-      saveState(state);
-      goToPhase(1);
-    }
+    if (confirm('Azzerare tutti i risultati salvati su questo browser?')) { state = {}; saveState(state); renderHome(); }
   });
-
-  document.querySelectorAll('.phase-item').forEach(el => el.classList.add('done'));
 }
+
+// avvio
+renderHome();
