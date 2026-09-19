@@ -82,7 +82,7 @@ const SCENARIOS = [
       feed: ['From: CFO <c.finance@arup-group.com>','Return-Path: <ops@arup-grp-finance.com>','Auth-Results: spf=fail dkim=fail','Oggetto: Operazione riservata — azione richiesta entro oggi','Corpo: "Serve la tua autorizzazione per un pagamento confidenziale, non discuterne con nessuno per ora."'],
       checklist: [
         { t: 'Il campo Return-Path punta a un dominio diverso da quello del mittente visualizzato', c: true },
-        { t: 'I controlli SPF e DKIM risultano falliti', c: true },
+        { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM), visibili nell\'intestazione, risultano entrambi "fail"', c: true },
         { t: 'Il corpo del messaggio richiede esplicitamente riservatezza e urgenza', c: true },
         { t: 'Il messaggio è stato inviato in orario lavorativo', c: false },
         { t: "Il mittente ha già scritto in passato all'utente", c: false }
@@ -108,7 +108,7 @@ const SCENARIOS = [
         'renderer: DeepFaceLab_GAN_Renderer_v2.0'
       ],
       checklist: [
-        { t: "Il metadata del video mostra l'uso di un motore di rendering non standard", c: true },
+        { t: 'Il nome del file di rendering ("DeepFaceLab_GAN_Renderer") richiama apertamente strumenti di generazione di volti sintetici (deepfake) tramite intelligenza artificiale', c: true },
         { t: 'Durante la chiamata viene richiesta esplicitamente riservatezza e urgenza', c: true },
         { t: 'Il dispositivo video indicato è una virtual camera anziché una webcam fisica', c: true },
         { t: 'Il video ha una risoluzione elevata (1080p)', c: false },
@@ -178,7 +178,7 @@ const SCENARIOS = [
       checklist: [
         { t: "L'operatore non fornisce alcun codice ticket verificabile", c: true },
         { t: 'Il dominio menzionato per il portale VPN è diverso da quello ufficiale', c: true },
-        { t: "Il modulo della pagina invia i dati a un dominio esterno (collect.php)", c: true },
+        { t: 'Il codice della pagina mostra che i dati del modulo vengono inviati ("action=") a un indirizzo diverso dal portale VPN ufficiale', c: true },
         { t: 'La chiamata avviene dal numero ufficiale IT', c: false },
         { t: "L'operatore chiede esplicitamente la password in chiaro al telefono", c: false }
       ],
@@ -218,7 +218,7 @@ const SCENARIOS = [
       feed: ['From: CEO <ceo@tecnimont.com>','Return-Path: <ops@tecnlmont.com>','Auth-Results: spf=fail dkim=fail dmarc=fail','Oggetto: Bonifico urgente € 480.000 — riservato'],
       checklist: [
         { t: 'Il campo Return-Path rimanda a un dominio diverso da quello ufficiale', c: true },
-        { t: 'I controlli SPF, DKIM e DMARC risultano falliti', c: true },
+        { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM, DMARC), visibili nell\'intestazione, risultano tutti "fail"', c: true },
         { t: 'Il dominio del mittente utilizza typosquatting ad alta somiglianza visiva (tecnlmont vs tecnimont)', c: true },
         { t: 'Il messaggio è firmato digitalmente con certificato valido', c: false },
         { t: 'Il messaggio proviene da un indirizzo interno noto', c: false }
@@ -303,12 +303,12 @@ const SCENARIOS = [
         also: 'Cyber Kill Chain: Delivery / Exploitation · CSE Kill Chain: contatto e ingaggio' }
     },
     { label: 'Movimento laterale',
-      briefing: `Nel Domain Controller viene rilevata, successivamente all'accesso della Fase 1, la creazione di una Group Policy non riconducibile alle procedure standard.`,
+      briefing: `Nel Domain Controller viene rilevata, successivamente all'accesso della Fase 1, la creazione di una Group Policy — una regola che si applica automaticamente a tutti i computer della rete — non registrata tra le modifiche autorizzate.`,
       feed: ['windows_security_audit.log','Event ID 4624 — accesso standard (rumore)','Event ID 4627 — aggiornamento policy generico (rumore)','Event ID 5136 — Directory Service Changes — GPO_Emergency_Patch_KB99812'],
       checklist: [
-        { t: 'Viene creata una nuova Group Policy non riconducibile alle procedure standard', c: true },
+        { t: 'Viene creata una nuova Group Policy non registrata tra le modifiche autorizzate', c: true },
         { t: "L'evento di modifica in Active Directory è isolato tra eventi di routine", c: true },
-        { t: 'La GPO viene distribuita a tutti gli host del dominio', c: true },
+        { t: 'Il nome della GPO ("GPO_Emergency_Patch_KB99812") imita un aggiornamento di sicurezza legittimo, probabilmente per non destare sospetti', c: true },
         { t: 'Gli eventi di accesso standard nel log sono tutti sospetti', c: false },
         { t: 'La GPO è firmata da un amministratore noto e autorizzato', c: false }
       ],
