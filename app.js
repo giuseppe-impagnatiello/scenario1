@@ -7,13 +7,19 @@ function shuffledIndices(n) {
   }
   return arr;
 }
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 // ============ DATI DEGLI SCENARI ============
 const SCENARIOS = [
   { id: 'uber', title: 'Scenario 1 — Uber', subtitle: 'Accesso VPN compromesso', phases: [
     { label: 'MFA Fatigue',
       briefing: `Sono le 09:12. Sul telefono dell'amministratore di rete inizia ad arrivare una serie di notifiche push per l'autenticazione a più fattori, non richieste da nessun accesso volontario.`,
-      feed: ['09:12:04 — richiesta MFA — respinta','09:14:51 — richiesta MFA — respinta','09:19:23 — richiesta MFA — respinta','09:23:47 — richiesta MFA — respinta','09:28:10 — richiesta MFA — respinta'],
+      feed: [
+        { file: 'mfa_request.csv' },
+        '09:12:04 — richiesta MFA — respinta','09:14:51 — richiesta MFA — respinta','09:19:23 — richiesta MFA — respinta','09:23:47 — richiesta MFA — respinta','09:28:10 — richiesta MFA — respinta'
+      ],
       checklist: [
         { t: "Le richieste non sono state generate da un accesso volontario dell'utente", c: true },
         { t: "Le notifiche si ripetono a distanza di pochi minuti l'una dall'altra", c: true },
@@ -33,6 +39,7 @@ const SCENARIOS = [
     { label: 'Contatto Help Desk',
       briefing: `Sono le 09:35. Un operatore che si presenta come "IT Support Desk" contatta la vittima in chat, proprio mentre le notifiche MFA continuano ad arrivare.`,
       feed: [
+        { file: 'log_chat_helpdesk.txt' },
         { from: 'IT-SUPPORT-DESK', text: 'Buongiorno, la contatto dal supporto IT centrale. Abbiamo rilevato tentativi di accesso sospetti sul suo account e stiamo forzando un ricontrollo MFA.' },
         { from: 'utente.rossi', text: 'Ok, ma non ho richiesto nulla io' },
         { from: 'IT-SUPPORT-DESK', text: "Lo so, è la procedura automatica di verifica. Le arriveranno delle notifiche sul telefono, le chiedo di approvarle così chiudiamo il ticket prima che le venga bloccato l'accesso VPN." },
@@ -57,7 +64,10 @@ const SCENARIOS = [
     },
     { label: 'Esito',
       briefing: `Sono le 09:37:30. Il sistema di accesso remoto registra un'autenticazione riuscita, immediatamente dopo l'approvazione MFA forzata della Fase 2.`,
-      feed: ['08:47:15 — AUTH_SUCCESS — user=prof.rossi — src=90.147.22.6 (postazione nota)','09:12:04 — AUTH_FAILURE — user=utente.rossi — src=185.14.22.90 — reason=MFA_TIMEOUT','09:37:30 — AUTH_SUCCESS — user=utente.rossi — src=185.14.22.90 — session=VPN-8841'],
+      feed: [
+        { file: 'vpn_access.log' },
+        '08:47:15 — AUTH_SUCCESS — user=prof.rossi — src=90.147.22.6 (postazione nota)','09:12:04 — AUTH_FAILURE — user=utente.rossi — src=185.14.22.90 — reason=MFA_TIMEOUT','09:37:30 — AUTH_SUCCESS — user=utente.rossi — src=185.14.22.90 — session=VPN-8841'
+      ],
       checklist: [
         { t: "L'IP dell'accesso riuscito coincide con quello del tentativo fallito delle 09:12", c: true },
         { t: "L'accesso avviene esattamente 30 secondi dopo l'approvazione MFA forzata", c: true },
@@ -79,7 +89,10 @@ const SCENARIOS = [
   { id: 'arup', title: 'Scenario 2 — Arup', subtitle: 'Frode tramite contenuti sintetici', phases: [
     { label: 'Email sospetta',
       briefing: `Arriva una email che si presenta come richiesta urgente e riservata da parte del CFO, riguardante un trasferimento di fondi.`,
-      feed: ['From: CFO <c.finance@arup-group.com>','Return-Path: <ops@arup-grp-finance.com>','Auth-Results: spf=fail dkim=fail','Oggetto: Operazione riservata — azione richiesta entro oggi','Corpo: "Serve la tua autorizzazione per un pagamento confidenziale, non discuterne con nessuno per ora."'],
+      feed: [
+        { file: 'urgent_request.eml' },
+        'From: CFO <c.finance@arup-group.com>','Return-Path: <ops@arup-grp-finance.com>','Auth-Results: spf=fail dkim=fail','Oggetto: Operazione riservata — azione richiesta entro oggi','Corpo: "Serve la tua autorizzazione per un pagamento confidenziale, non discuterne con nessuno per ora."'
+      ],
       checklist: [
         { t: 'Il campo Return-Path punta a un dominio diverso da quello del mittente visualizzato', c: true },
         { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM), visibili nell\'intestazione, risultano entrambi "fail"', c: true },
@@ -125,7 +138,10 @@ const SCENARIOS = [
     },
     { label: 'Esito',
       briefing: `Il bonifico viene autorizzato sulla base delle sole comunicazioni ricevute.`,
-      feed: ['wire_transfer_auth.pdf','Beneficiario: nuovo fornitore, non presente in anagrafica abituale','IBAN: CH93 1234 5678 9012 3456 7','Importo: € 340.000 — soglia doppia approvazione: € 100.000','Verifica su canale secondario: NON registrata'],
+      feed: [
+        { file: 'wire_transfer_auth.pdf' },
+        'Beneficiario: nuovo fornitore, non presente in anagrafica abituale','IBAN: CH93 1234 5678 9012 3456 7','Importo: € 340.000 — soglia doppia approvazione: € 100.000','Verifica su canale secondario: NON registrata'
+      ],
       checklist: [
         { t: 'Il bonifico è stato autorizzato senza verifica su un canale secondario', c: true },
         { t: "L'IBAN di destinazione non risulta tra quelli abitualmente utilizzati dal fornitore", c: true },
@@ -147,7 +163,10 @@ const SCENARIOS = [
   { id: 'twitter', title: 'Scenario 3 — Twitter', subtitle: 'Compromissione via vishing e OSINT', phases: [
     { label: 'Ricognizione OSINT',
       briefing: `Prima del contatto diretto, l'attaccante raccoglie informazioni pubbliche sulla vittima per costruire un pretesto credibile.`,
-      feed: ['employee_profile.txt','"disservizi VPN ancora nel weekend..." — post pubblico','Menzioni a colleghi del reparto IT (es. "Marco dell\'IT")','Orari di lavoro abituali dedotti da post ricorrenti'],
+      feed: [
+        { file: 'employee_profile.txt' },
+        '"disservizi VPN ancora nel weekend..." — post pubblico','Menzioni a colleghi del reparto IT (es. "Marco dell\'IT")','Orari di lavoro abituali dedotti da post ricorrenti'
+      ],
       checklist: [
         { t: 'Il profilo raccoglie lamentele pubbliche della vittima sulla VPN', c: true },
         { t: 'Vengono citati nomi di colleghi realmente esistenti', c: true },
@@ -193,7 +212,10 @@ const SCENARIOS = [
     },
     { label: 'Esito',
       briefing: `Il log del gateway VPN registra un accesso riuscito pochi minuti dopo la telefonata.`,
-      feed: ['08:10:02 — AUTH_SUCCESS — user=vittima — src=82.50.12.9 (postazione nota)','11:47:55 — AUTH_SUCCESS — user=vittima — src=203.0.113.88 — session=VPN-2291'],
+      feed: [
+        { file: 'vpn_auth.log' },
+        '08:10:02 — AUTH_SUCCESS — user=vittima — src=82.50.12.9 (postazione nota)','11:47:55 — AUTH_SUCCESS — user=vittima — src=203.0.113.88 — session=VPN-2291'
+      ],
       checklist: [
         { t: "L'IP dell'accesso è nuovo rispetto agli accessi abituali della vittima", c: true },
         { t: "L'accesso avviene pochi minuti dopo la telefonata delle 11:42", c: true },
@@ -215,7 +237,10 @@ const SCENARIOS = [
   { id: 'tecnimont', title: 'Scenario 4 — Tecnimont', subtitle: 'Business Email Compromise', phases: [
     { label: 'Email CEO contraffatta',
       briefing: `Un messaggio a nome del CEO richiede l'esecuzione urgente di un bonifico da € 480.000, con toni di autorità e urgenza.`,
-      feed: ['From: CEO <ceo@tecnimont.com>','Return-Path: <ops@tecnlmont.com>','Auth-Results: spf=fail dkim=fail dmarc=fail','Oggetto: Bonifico urgente € 480.000 — riservato'],
+      feed: [
+        { file: 'ceo_directive.eml' },
+        'From: CEO <ceo@tecnimont.com>','Return-Path: <ops@tecnlmont.com>','Auth-Results: spf=fail dkim=fail dmarc=fail','Oggetto: Bonifico urgente € 480.000 — riservato'
+      ],
       checklist: [
         { t: 'Il campo Return-Path rimanda a un dominio diverso da quello ufficiale', c: true },
         { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM, DMARC), visibili nell\'intestazione, risultano tutti "fail"', c: true },
@@ -235,6 +260,7 @@ const SCENARIOS = [
     { label: 'Finta conference call',
       briefing: `Una riunione telefonica introduce un sedicente consulente legale a supporto della richiesta, facendo pressione per derogare alle procedure.`,
       feed: [
+        { file: 'meeting_minutes.txt' },
         { from: 'Consulente legale', text: 'La operazione richiede la massima riservatezza, non può passare per i canali abituali.' },
         { from: 'CEO (voce)', text: 'Confermo, procediamo senza la doppia firma per questa volta.' }
       ],
@@ -256,7 +282,10 @@ const SCENARIOS = [
     },
     { label: 'Esito',
       briefing: `Il registro del sistema SWIFT documenta l'esecuzione del bonifico da € 480.000.`,
-      feed: ['swift_transfer_log.pdf','Importo: € 480.000 — soglia doppia approvazione: € 100.000','Doppia approvazione: NON eseguita','Beneficiario: non presente tra i fornitori abituali'],
+      feed: [
+        { file: 'swift_transfer_log.pdf' },
+        'Importo: € 480.000 — soglia doppia approvazione: € 100.000','Doppia approvazione: NON eseguita','Beneficiario: non presente tra i fornitori abituali'
+      ],
       checklist: [
         { t: 'Il trasferimento è stato eseguito senza la doppia approvazione prevista dalla soglia', c: true },
         { t: 'Il beneficiario non è tra i fornitori abituali', c: true },
@@ -280,9 +309,7 @@ const SCENARIOS = [
       briefing: `Alle 09:38 un'email sfrutta l'urgenza di un aggiornamento del client VPN per indurre l'amministratore di rete a inserire le proprie credenziali su un portale contraffatto.`,
       feed: [
         { file: 'phishing_lure.eml' },
-        'From: IT Support <support@regione-lazio-it.it>',
-        'Oggetto: Aggiornamento urgente client VPN richiesto entro le 10:00',
-        'Link: hxxps://vpn-regione-lazio-update[.]com/renew',
+        'From: IT Support <support@regione-lazio-it.it>','Oggetto: Aggiornamento urgente client VPN richiesto entro le 10:00','Link: hxxps://vpn-regione-lazio-update[.]com/renew',
         { file: 'vpn_gateway_logs.csv' },
         '09:41:02 — AUTH_SUCCESS — user=admin.rete — src=194.28.10.4 — session=VPN-9931 (IP anomalo)'
       ],
@@ -304,7 +331,10 @@ const SCENARIOS = [
     },
     { label: 'Movimento laterale',
       briefing: `Nel Domain Controller viene rilevata, successivamente all'accesso della Fase 1, la creazione di una Group Policy — una regola che si applica automaticamente a tutti i computer della rete — non registrata tra le modifiche autorizzate.`,
-      feed: ['windows_security_audit.log','Event ID 4624 — accesso standard (rumore)','Event ID 4627 — aggiornamento policy generico (rumore)','Event ID 5136 — Directory Service Changes — GPO_Emergency_Patch_KB99812'],
+      feed: [
+        { file: 'windows_security_audit.log' },
+        'Event ID 4624 — accesso standard (rumore)','Event ID 4627 — aggiornamento policy generico (rumore)','Event ID 5136 — Directory Service Changes — GPO_Emergency_Patch_KB99812'
+      ],
       checklist: [
         { t: 'Viene creata una nuova Group Policy non registrata tra le modifiche autorizzate', c: true },
         { t: "L'evento di modifica in Active Directory è isolato tra eventi di routine", c: true },
@@ -323,7 +353,10 @@ const SCENARIOS = [
     },
     { label: 'Esito',
       briefing: `Un report di triage forense documenta l'impatto distruttivo sugli endpoint colpiti, successivamente alla distribuzione della GPO malevola vista in Fase 2.`,
-      feed: ['encrypted_host_triage.txt','vssadmin delete shadows /all /quiet — eseguito','bcdedit /set {default} recoveryenabled no — eseguito','Stato file system: cifrato'],
+      feed: [
+        { file: 'encrypted_host_triage.txt' },
+        'vssadmin delete shadows /all /quiet — eseguito','bcdedit /set {default} recoveryenabled no — eseguito','Stato file system: cifrato'
+      ],
       checklist: [
         { t: 'Sono stati eseguiti comandi per inibire il ripristino di sistema (vssadmin, bcdedit)', c: true },
         { t: 'Il file system risulta cifrato sugli host coinvolti', c: true },
@@ -418,10 +451,6 @@ function renderHome() {
 }
 
 // ============ FASE ============
-function escapeHtml(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 function renderFeedItem(item) {
   if (typeof item === 'string') return `<div class="row"><span>${escapeHtml(item)}</span></div>`;
   if (item.file) return `<div class="file-label">📄 ${escapeHtml(item.file)}</div>`;
