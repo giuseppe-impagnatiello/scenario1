@@ -25,7 +25,7 @@ const SCENARIOS = [
         { t: "Le notifiche si ripetono a distanza di pochi minuti l'una dall'altra", c: true },
         { t: 'Non è arrivata nessuna comunicazione ufficiale che annunci un controllo di sicurezza', c: true },
         { t: "L'orario è compatibile con il normale accesso mattutino", c: false },
-        { t: "Il nome dell'app di autenticazione mostrata è quello ufficiale aziendale", c: false }
+        { t: "Ogni richiesta MFA riporta un orario preciso al secondo", c: false }
       ],
       choices: [
         { t: "Rifiuta tutte le richieste e segnala subito l'anomalia all'IT", c: true },
@@ -51,7 +51,7 @@ const SCENARIOS = [
         { t: 'Chiede di approvare una notifica già in corso, non di generarne una nuova tramite procedura ufficiale', c: true },
         { t: 'Il contatto avviene su un canale chat non riconducibile ai sistemi IT ufficiali', c: true },
         { t: 'Il tono è cortese e professionale', c: false },
-        { t: "L'operatore conosce già lo username dell'utente", c: false }
+        { t: "L'operatore si scusa esplicitamente per il disagio causato", c: false }
       ],
       choices: [
         { t: "Interrompi la conversazione e verifica l'identità dell'operatore chiamando il numero IT ufficiale già noto", c: true },
@@ -97,8 +97,8 @@ const SCENARIOS = [
         { t: 'Il campo Return-Path punta a un dominio diverso da quello del mittente visualizzato', c: true },
         { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM), visibili nell\'intestazione, risultano entrambi "fail"', c: true },
         { t: 'Il corpo del messaggio richiede esplicitamente riservatezza e urgenza', c: true },
-        { t: 'Il messaggio è stato inviato in orario lavorativo', c: false },
-        { t: "Il mittente ha già scritto in passato all'utente", c: false }
+        { t: 'Il messaggio è scritto in un italiano formale e corretto', c: false },
+        { t: 'Il messaggio ha un oggetto (subject) compilato', c: false }
       ],
       choices: [
         { t: "Verificare l'autenticità tramite un canale separato prima di qualsiasi azione", c: true },
@@ -125,7 +125,7 @@ const SCENARIOS = [
         { t: 'Durante la chiamata viene richiesta esplicitamente riservatezza e urgenza', c: true },
         { t: 'Il dispositivo video indicato è una virtual camera anziché una webcam fisica', c: true },
         { t: 'Il video ha una risoluzione elevata (1080p)', c: false },
-        { t: "L'interlocutore parla con voce naturale, senza distorsioni udibili", c: false }
+        { t: 'Il codec audio utilizzato (Opus) è uno standard comune', c: false }
       ],
       choices: [
         { t: "Interrompere la videochiamata e verificare l'identità tramite un canale indipendente noto", c: true },
@@ -146,8 +146,8 @@ const SCENARIOS = [
         { t: 'Il bonifico è stato autorizzato senza verifica su un canale secondario', c: true },
         { t: "L'IBAN di destinazione non risulta tra quelli abitualmente utilizzati dal fornitore", c: true },
         { t: "L'importo supera la soglia che richiederebbe una doppia approvazione", c: true },
-        { t: 'Il bonifico è stato eseguito in valuta estera', c: false },
-        { t: 'La richiesta proveniva da un dirigente noto', c: false }
+        { t: 'Il bonifico è stato effettuato in euro, la valuta abituale dei pagamenti aziendali', c: false },
+        { t: 'Il nome del beneficiario coincide con un fornitore già presente in anagrafica', c: false }
       ],
       choices: [
         { t: 'Bloccare immediatamente il bonifico se non ancora eseguito e avviare la segnalazione alla banca e al CERT aziendale', c: true },
@@ -172,7 +172,7 @@ const SCENARIOS = [
         { t: 'Vengono citati nomi di colleghi realmente esistenti', c: true },
         { t: 'Il documento include orari e abitudini dedotte da post pubblici', c: true },
         { t: 'Il documento è stato ottenuto da fonti riservate aziendali', c: false },
-        { t: 'Il profilo contiene una foto ufficiale del badge aziendale', c: false }
+        { t: 'Il documento è redatto in formato PDF', c: false }
       ],
       choices: [
         { t: "Documentare l'esposizione informativa come fattore abilitante dell'attacco nel rapporto", c: true },
@@ -245,8 +245,8 @@ const SCENARIOS = [
         { t: 'Il campo Return-Path rimanda a un dominio diverso da quello ufficiale', c: true },
         { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM, DMARC), visibili nell\'intestazione, risultano tutti "fail"', c: true },
         { t: 'Il dominio del mittente utilizza typosquatting ad alta somiglianza visiva (tecnlmont vs tecnimont)', c: true },
-        { t: 'Il messaggio è firmato digitalmente con certificato valido', c: false },
-        { t: 'Il messaggio proviene da un indirizzo interno noto', c: false }
+        { t: 'Il messaggio ha per oggetto un importo espresso in euro', c: false },
+        { t: 'Il dominio nel campo Return-Path corrisponde esattamente al dominio ufficiale (tecnimont.com)', c: false }
       ],
       choices: [
         { t: "Verificare l'autenticità tramite un canale indipendente prima di procedere", c: true },
@@ -268,7 +268,7 @@ const SCENARIOS = [
         { t: 'Viene introdotta la figura di un consulente legale non verificabile', c: true },
         { t: 'Si richiede di derogare alla procedura di doppia firma', c: true },
         { t: "Viene fatta pressione sulla riservatezza dell'operazione", c: true },
-        { t: 'La riunione è stata pianificata con largo anticipo', c: false },
+        { t: 'La riunione si svolge in lingua italiana', c: false },
         { t: 'Tutti i partecipanti sono identificabili tramite canali aziendali noti', c: false }
       ],
       choices: [
@@ -284,14 +284,14 @@ const SCENARIOS = [
       briefing: `Il registro del sistema SWIFT documenta l'esecuzione del bonifico da € 480.000.`,
       feed: [
         { file: 'swift_transfer_log.pdf' },
-        'Importo: € 480.000 — soglia doppia approvazione: € 100.000','Doppia approvazione: NON eseguita','Beneficiario: non presente tra i fornitori abituali'
+        'Beneficiario: società "NovaTrade Ltd" — non presente tra i fornitori abituali','Importo: € 480.000 — soglia doppia approvazione: € 100.000','Doppia approvazione: NON eseguita'
       ],
       checklist: [
         { t: 'Il trasferimento è stato eseguito senza la doppia approvazione prevista dalla soglia', c: true },
         { t: 'Il beneficiario non è tra i fornitori abituali', c: true },
         { t: "L'importo supera abbondantemente la soglia dichiarata nella direttiva contraffatta", c: true },
-        { t: 'Il trasferimento è avvenuto in orario lavorativo', c: false },
-        { t: 'Il numero di conto beneficiario è italiano', c: false }
+        { t: 'Il documento è stato prodotto in formato PDF', c: false },
+        { t: 'Il beneficiario è una persona fisica', c: false }
       ],
       choices: [
         { t: 'Bloccare il trasferimento se possibile e avviare la segnalazione bancaria e al CERT', c: true },
@@ -317,7 +317,7 @@ const SCENARIOS = [
         { t: "L'email sfrutta l'urgenza di un aggiornamento del client VPN", c: true },
         { t: 'Il link porta a un dominio diverso da quello ufficiale (vpn-regione-lazio-update.com)', c: true },
         { t: "Il log VPN mostra un accesso da un IP anomalo pochi minuti dopo l'orario dell'email", c: true },
-        { t: "L'email è firmata digitalmente", c: false },
+        { t: 'Il link nel messaggio utilizza il protocollo HTTPS (hxxps)', c: false },
         { t: 'Il destinatario è un utente generico, non un amministratore', c: false }
       ],
       choices: [
@@ -340,7 +340,7 @@ const SCENARIOS = [
         { t: "L'evento di modifica in Active Directory è isolato tra eventi di routine", c: true },
         { t: 'Il nome della GPO ("GPO_Emergency_Patch_KB99812") imita un aggiornamento di sicurezza legittimo, probabilmente per non destare sospetti', c: true },
         { t: 'Gli eventi di accesso standard nel log sono tutti sospetti', c: false },
-        { t: 'La GPO è firmata da un amministratore noto e autorizzato', c: false }
+        { t: "L'evento è registrato con un identificativo numerico (Event ID)", c: false }
       ],
       choices: [
         { t: 'Isolare la GPO malevola, revocarla e avviare threat hunting sugli host coinvolti', c: true },
