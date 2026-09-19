@@ -414,9 +414,13 @@ function renderHome() {
 }
 
 // ============ FASE ============
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function renderFeedItem(item) {
-  if (typeof item === 'string') return `<div class="row"><span>${item}</span></div>`;
-  return `<div class="row"><span><strong>${item.from}:</strong> ${item.text}</span></div>`;
+  if (typeof item === 'string') return `<div class="row"><span>${escapeHtml(item)}</span></div>`;
+  return `<div class="row"><span><strong>${escapeHtml(item.from)}:</strong> ${escapeHtml(item.text)}</span></div>`;
 }
 
 function openPhase(scenarioId, phaseIdx) {
