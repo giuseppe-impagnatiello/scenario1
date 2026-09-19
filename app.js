@@ -99,9 +99,10 @@ const SCENARIOS = [
     { label: 'Videochiamata',
       briefing: `Segue una videochiamata in cui una persona dall'aspetto e dalla voce del CFO conferma la richiesta, insistendo su urgenza e riservatezza.`,
       feed: [
+        { file: 'video_call_transcript.txt' },
         { from: 'CFO (voce)', text: "Deve restare tra noi, è un'operazione riservata e il tempo stringe." },
         { from: 'Assistente', text: 'Capito, procedo non appena confermato.' },
-        'video_metadata.json',
+        { file: 'video_metadata.json' },
         'codec: H.264 / Opus — risoluzione: 1080p',
         'device: OBS Virtual Camera',
         'renderer: DeepFaceLab_GAN_Renderer_v2.0'
@@ -110,8 +111,8 @@ const SCENARIOS = [
         { t: "Il metadata del video mostra l'uso di un motore di rendering non standard", c: true },
         { t: 'Durante la chiamata viene richiesta esplicitamente riservatezza e urgenza', c: true },
         { t: 'Il dispositivo video indicato è una virtual camera anziché una webcam fisica', c: true },
-        { t: 'La risoluzione video è quella standard aziendale', c: false },
-        { t: "L'interlocutore usa il nome corretto del CFO", c: false }
+        { t: 'Il video ha una risoluzione elevata (1080p)', c: false },
+        { t: "L'interlocutore parla con voce naturale, senza distorsioni udibili", c: false }
       ],
       choices: [
         { t: "Interrompere la videochiamata e verificare l'identità tramite un canale indipendente noto", c: true },
@@ -166,11 +167,12 @@ const SCENARIOS = [
     { label: 'Vishing',
       briefing: `Ore 11:42. Un operatore telefonico, citando dettagli raccolti nella ricognizione, contatta la vittima presentandosi come supporto IT.`,
       feed: [
+        { file: 'call_transcript.txt' },
         '11:42 — chiamata in arrivo, numero non riconosciuto',
         { from: 'Operatore', text: "Buongiorno, la contatto per il ticket sui disservizi VPN — ne parlava anche Marco dell'IT nei giorni scorsi." },
         { from: 'Vittima', text: 'Ah sì, finalmente!' },
         { from: 'Operatore', text: "Le mando il link per riconfigurare l'accesso: vpn-support-helpdesk.it/login" },
-        'vpn_phishing.html (estratto)',
+        { file: 'vpn_phishing.html (estratto)' },
         '<form action="https://vpn-support-helpdesk.it/collect.php" method="POST">'
       ],
       checklist: [
@@ -277,9 +279,11 @@ const SCENARIOS = [
     { label: 'Phishing e accesso VPN',
       briefing: `Alle 09:38 un'email sfrutta l'urgenza di un aggiornamento del client VPN per indurre l'amministratore di rete a inserire le proprie credenziali su un portale contraffatto.`,
       feed: [
+        { file: 'phishing_lure.eml' },
         'From: IT Support <support@regione-lazio-it.it>',
         'Oggetto: Aggiornamento urgente client VPN richiesto entro le 10:00',
         'Link: hxxps://vpn-regione-lazio-update[.]com/renew',
+        { file: 'vpn_gateway_logs.csv' },
         '09:41:02 — AUTH_SUCCESS — user=admin.rete — src=194.28.10.4 — session=VPN-9931 (IP anomalo)'
       ],
       checklist: [
@@ -420,6 +424,7 @@ function escapeHtml(str) {
 
 function renderFeedItem(item) {
   if (typeof item === 'string') return `<div class="row"><span>${escapeHtml(item)}</span></div>`;
+  if (item.file) return `<div class="file-label">📄 ${escapeHtml(item.file)}</div>`;
   return `<div class="row"><span><strong>${escapeHtml(item.from)}:</strong> ${escapeHtml(item.text)}</span></div>`;
 }
 
