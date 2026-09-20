@@ -462,7 +462,12 @@ function renderHome() {
     </div>`;
   }).join('');
   main.innerHTML = `
-    <div class="brief">Seleziona uno scenario per iniziare il percorso investigativo. I progressi restano salvati su questo browser.</div>
+    <div class="brief">
+      <strong>Come funziona:</strong> scegli uno scenario qui sotto. Ogni scenario è diviso in 3 fasi: in ciascuna
+      leggerai degli artefatti (log, email, trascrizioni) e risponderai a due domande. Dopo ogni fase ricevi un
+      punteggio e una spiegazione, poi puoi passare alla successiva. I progressi restano salvati su questo browser
+      — puoi chiudere e tornare quando vuoi. Al termine, apri "Rapporto" ed esporta il file per il questionario.
+    </div>
     <div class="scenario-grid">${cards}</div>
   `;
   main.querySelectorAll('.scenario-card').forEach(el => el.addEventListener('click', () => openPhase(el.dataset.scenario, 0)));
@@ -475,6 +480,8 @@ function renderFeedItem(item) {
   return `<div class="row"><span><strong>${escapeHtml(item.from)}:</strong> ${escapeHtml(item.text)}</span></div>`;
 }
 
+let phaseStartTime = null;
+
 function openPhase(scenarioId, phaseIdx) {
   currentView = { type: 'phase', scenarioId, phaseIdx };
   renderNav();
@@ -482,7 +489,7 @@ function openPhase(scenarioId, phaseIdx) {
   statusText(`${sc.title} — fase ${phaseIdx + 1} di ${sc.phases.length}`);
   const saved = getPhaseState(scenarioId, phaseIdx);
   if (saved) renderDebriefView(scenarioId, phaseIdx, saved);
-  else renderPhaseView(scenarioId, phaseIdx);
+  else { phaseStartTime = Date.now(); renderPhaseView(scenarioId, phaseIdx); }
 }
 
 function renderPhaseView(scenarioId, phaseIdx) {
@@ -522,7 +529,8 @@ function evaluatePhase(scenarioId, phaseIdx) {
   const indicatorScore = Math.max(0, (tp - fp) / totalCorrect);
   const score = Math.round(((indicatorScore + (choiceCorrect ? 1 : 0)) / 2) * 100);
 
-  const data = { score, tp, fp, choiceCorrect };
+  const seconds = phaseStartTime ? Math.round((Date.now() - phaseStartTime) / 1000) : null;
+  const data = { score, tp, fp, choiceCorrect, seconds };
   setPhaseState(scenarioId, phaseIdx, data);
   renderDebriefView(scenarioId, phaseIdx, data);
 }
@@ -534,7 +542,7 @@ function renderDebriefView(scenarioId, phaseIdx, data) {
   main.innerHTML = `
     <div class="debrief">
       <div class="score">${data.score}%</div>
-      <div>${data.tp} indicatori corretti rilevati · ${data.fp} falsi positivi · decisione ${data.choiceCorrect ? 'corretta' : 'da rivedere'}</div>
+      <div>${data.tp} indicatori corretti rilevati · ${data.fp} falsi positivi · decisione ${data.choiceCorrect ? 'corretta' : 'da rivedere'}${data.seconds ? ` · completata in ${data.seconds}s` : ''}</div>
       <div class="cols">
         <div><h4>Indicatori decisivi</h4><ul>${phase.checklist.filter(c => c.c).map(c => `<li>${c.t}</li>`).join('')}</ul></div>
         <div>
