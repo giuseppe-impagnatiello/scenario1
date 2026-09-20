@@ -50,8 +50,8 @@ const SCENARIOS = [
         { t: "L'operatore non fornisce alcun numero di ticket verificabile", c: true },
         { t: 'Chiede di approvare una notifica già in corso, non di generarne una nuova tramite procedura ufficiale', c: true },
         { t: 'Il contatto avviene su un canale chat non riconducibile ai sistemi IT ufficiali', c: true },
-        { t: 'Il tono è cortese e professionale', c: false },
-        { t: "L'operatore si scusa esplicitamente per il disagio causato", c: false }
+        { t: "Fa leva sulla minaccia di un blocco imminente dell'accesso per spingere all'azione immediata", c: true },
+        { t: 'Il tono è cortese e professionale', c: false }
       ],
       choices: [
         { t: "Interrompi la conversazione e verifica l'identità dell'operatore chiamando il numero IT ufficiale già noto", c: true },
@@ -96,9 +96,9 @@ const SCENARIOS = [
       checklist: [
         { t: 'Il campo Return-Path punta a un dominio diverso da quello del mittente visualizzato', c: true },
         { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM), visibili nell\'intestazione, risultano entrambi "fail"', c: true },
-        { t: 'Il corpo del messaggio richiede esplicitamente riservatezza e urgenza', c: true },
         { t: 'Il messaggio è scritto in un italiano formale e corretto', c: false },
-        { t: 'Il messaggio ha un oggetto (subject) compilato', c: false }
+        { t: 'Il messaggio ha un oggetto (subject) compilato', c: false },
+        { t: 'Il messaggio include allegati sospetti', c: false }
       ],
       choices: [
         { t: "Verificare l'autenticità tramite un canale separato prima di qualsiasi azione", c: true },
@@ -162,23 +162,23 @@ const SCENARIOS = [
 
   { id: 'twitter', title: 'Scenario 3 — Twitter', subtitle: 'Compromissione via vishing e OSINT', phases: [
     { label: 'Ricognizione OSINT',
-      briefing: `Prima del contatto diretto, l'attaccante raccoglie informazioni pubbliche sulla vittima per costruire un pretesto credibile.`,
+      briefing: `Durante l'attività di incident response, l'analista ricostruisce quali informazioni sulla vittima fossero pubblicamente disponibili prima dell'attacco, e che l'attaccante ha verosimilmente utilizzato per costruire un pretesto credibile.`,
       feed: [
         { file: 'employee_profile.txt' },
-        '"disservizi VPN ancora nel weekend..." — post pubblico','Menzioni a colleghi del reparto IT (es. "Marco dell\'IT")','Orari di lavoro abituali dedotti da post ricorrenti'
+        '"disservizi sul portale vpn.twitter-corp.com ancora nel weekend..." — post pubblico','Menzioni a colleghi del reparto IT (es. "Marco dell\'IT")','Orari di lavoro abituali dedotti da post ricorrenti'
       ],
       checklist: [
         { t: 'Il profilo raccoglie lamentele pubbliche della vittima sulla VPN', c: true },
-        { t: 'Vengono citati nomi di colleghi realmente esistenti', c: true },
-        { t: 'Il documento include orari e abitudini dedotte da post pubblici', c: true },
+        { t: 'Il documento riporta dettagli personali dedotti da più post pubblici (nomi di colleghi, orari abituali)', c: true },
         { t: 'Il documento è stato ottenuto da fonti riservate aziendali', c: false },
-        { t: 'Il documento è redatto in formato PDF', c: false }
+        { t: 'Il documento è redatto in formato PDF', c: false },
+        { t: "Il profilo cita esplicitamente l'indirizzo di casa della vittima", c: false }
       ],
       choices: [
         { t: "Documentare l'esposizione informativa come fattore abilitante dell'attacco nel rapporto", c: true },
-        { t: 'Ignorare il dossier, non è tecnicamente rilevante', c: false },
-        { t: "Contattare direttamente l'autore del dossier per identificarlo", c: false },
-        { t: 'Eliminare il profilo social della vittima', c: false }
+        { t: 'Considerare l\'esposizione irrilevante, poiché si tratta solo di informazioni pubbliche', c: false },
+        { t: 'Richiedere la rimozione immediata di tutti i contenuti pubblici della vittima dai social media', c: false },
+        { t: 'Procedere direttamente alla fase successiva senza annotare la fonte dell\'esposizione', c: false }
       ],
       tech: { code: 'T1589.002', name: 'Gather Victim Identity Information: Social Media', text: "La ricognizione su fonti aperte fornisce all'attaccante i dettagli necessari a rendere credibile il pretesto della fase successiva.",
         also: 'Cyber Kill Chain: Reconnaissance · CSE Kill Chain: ricognizione' }
@@ -189,7 +189,7 @@ const SCENARIOS = [
         { file: 'call_transcript.txt' },
         '11:42 — chiamata in arrivo, numero non riconosciuto',
         { from: 'Operatore', text: "Buongiorno, la contatto per il ticket sui disservizi VPN — ne parlava anche Marco dell'IT nei giorni scorsi." },
-        { from: 'Vittima', text: 'Ah sì, finalmente!' },
+        { from: 'm.conti', text: 'Ah sì, finalmente!' },
         { from: 'Operatore', text: "Le mando il link per riconfigurare l'accesso: vpn-support-helpdesk.it/login" },
         { file: 'vpn_phishing.html (estratto)' },
         '<form action="https://vpn-support-helpdesk.it/collect.php" method="POST">'
@@ -198,8 +198,8 @@ const SCENARIOS = [
         { t: "L'operatore non fornisce alcun codice ticket verificabile", c: true },
         { t: 'Il dominio menzionato per il portale VPN è diverso da quello ufficiale', c: true },
         { t: 'Il codice della pagina mostra che i dati del modulo vengono inviati ("action=") a un indirizzo diverso dal portale VPN ufficiale', c: true },
-        { t: 'La chiamata avviene dal numero ufficiale IT', c: false },
-        { t: "L'operatore chiede esplicitamente la password in chiaro al telefono", c: false }
+        { t: 'La chiamata proviene da un numero non riconosciuto', c: true },
+        { t: 'La chiamata avviene dal numero ufficiale IT', c: false }
       ],
       choices: [
         { t: 'Interrompere la chiamata e verificare il canale attraverso i contatti IT ufficiali noti', c: true },
@@ -214,7 +214,11 @@ const SCENARIOS = [
       briefing: `Il log del gateway VPN registra un accesso riuscito pochi minuti dopo la telefonata.`,
       feed: [
         { file: 'vpn_auth.log' },
-        '08:10:02 — AUTH_SUCCESS — user=vittima — src=82.50.12.9 (postazione nota)','11:47:55 — AUTH_SUCCESS — user=vittima — src=203.0.113.88 — session=VPN-2291'
+        '16/03 — 08:03:34 — AUTH_SUCCESS — user=m.conti — src=82.50.12.9 — session=VPN-1907',
+        '17/03 — 08:05:11 — AUTH_SUCCESS — user=m.conti — src=82.50.12.9 — session=VPN-1187',
+        '18/03 — 08:12:47 — AUTH_SUCCESS — user=m.conti — src=82.50.12.9 — session=VPN-1201',
+        '19/03 — 08:10:02 — AUTH_SUCCESS — user=m.conti — src=82.50.12.9 — session=VPN-1219',
+        '19/03 — 11:47:55 — AUTH_SUCCESS — user=m.conti — src=203.0.113.88 — session=VPN-2291'
       ],
       checklist: [
         { t: "L'IP dell'accesso è nuovo rispetto agli accessi abituali della vittima", c: true },
@@ -242,11 +246,11 @@ const SCENARIOS = [
         'From: CEO <ceo@tecnimont.com>','Return-Path: <ops@tecnlmont.com>','Auth-Results: spf=fail dkim=fail dmarc=fail','Oggetto: Bonifico urgente € 480.000 — riservato'
       ],
       checklist: [
-        { t: 'Il campo Return-Path rimanda a un dominio diverso da quello ufficiale', c: true },
-        { t: 'I controlli automatici anti-frode dell\'email (SPF, DKIM, DMARC), visibili nell\'intestazione, risultano tutti "fail"', c: true },
-        { t: 'Il dominio del mittente utilizza typosquatting ad alta somiglianza visiva (tecnlmont vs tecnimont)', c: true },
+        { t: 'Nell\'intestazione, Return-Path e i controlli SPF/DKIM/DMARC risultano anomali', c: true },
+        { t: "L'oggetto stesso del messaggio richiede urgenza e riservatezza, tipiche leve di pressione psicologica", c: true },
         { t: 'Il messaggio ha per oggetto un importo espresso in euro', c: false },
-        { t: 'Il dominio nel campo Return-Path corrisponde esattamente al dominio ufficiale (tecnimont.com)', c: false }
+        { t: 'Il dominio nel campo Return-Path corrisponde esattamente al dominio ufficiale (tecnimont.com)', c: false },
+        { t: 'Il messaggio include un numero di telefono diretto per conferme urgenti', c: false }
       ],
       choices: [
         { t: "Verificare l'autenticità tramite un canale indipendente prima di procedere", c: true },
@@ -258,22 +262,27 @@ const SCENARIOS = [
         also: 'Cyber Kill Chain: Delivery · CSE Kill Chain: sviluppo del pretesto' }
     },
     { label: 'Finta conference call',
-      briefing: `Una riunione telefonica introduce un sedicente consulente legale a supporto della richiesta, facendo pressione per derogare alle procedure.`,
+      briefing: `Una riunione telefonica introduce una persona che si presenta come consulente legale a supporto della richiesta, facendo pressione per saltare le normali procedure di controllo.`,
       feed: [
         { file: 'meeting_minutes.txt' },
-        { from: 'Consulente legale', text: 'La operazione richiede la massima riservatezza, non può passare per i canali abituali.' },
-        { from: 'CEO (voce)', text: 'Confermo, procediamo senza la doppia firma per questa volta.' }
+        '15:02 — inizio chiamata',
+        { from: 'CEO (voce)', text: 'Buongiorno a tutti. Vi ho chiesto di collegarvi anche col nostro consulente, perché su questa operazione serve la massima cautela.' },
+        { from: 'Consulente legale', text: 'Buongiorno. Sì, la situazione è delicata: per come è strutturata, questa operazione non può passare dai canali che usate di solito.' },
+        { from: 'CFO', text: 'Scusi, non ho presente lo studio che rappresenta — può indicarci qualche riferimento?' },
+        { from: 'Consulente legale', text: "Capisco la domanda, ma preferirei non entrare nei dettagli adesso: i tempi sono stretti, concentriamoci sull'operazione." },
+        { from: 'CEO (voce)', text: 'Va bene così, andiamo avanti — per questa volta procediamo senza la doppia firma.' },
+        '15:09 — fine chiamata'
       ],
       checklist: [
-        { t: 'Viene introdotta la figura di un consulente legale non verificabile', c: true },
-        { t: 'Si richiede di derogare alla procedura di doppia firma', c: true },
+        { t: 'Alla richiesta diretta di specificare lo studio di appartenenza, il consulente evita la domanda', c: true },
+        { t: 'Si chiede di saltare il controllo della doppia firma', c: true },
         { t: "Viene fatta pressione sulla riservatezza dell'operazione", c: true },
         { t: 'La riunione si svolge in lingua italiana', c: false },
         { t: 'Tutti i partecipanti sono identificabili tramite canali aziendali noti', c: false }
       ],
       choices: [
-        { t: 'Rifiutare la deroga e seguire comunque la procedura di doppia firma', c: true },
-        { t: "Accettare la deroga vista l'autorità dichiarata dei partecipanti", c: false },
+        { t: 'Rifiutare e seguire comunque la procedura di doppia firma', c: true },
+        { t: "Accettare, vista l'autorità dichiarata dai partecipanti", c: false },
         { t: "Chiedere un secondo parere solo dopo l'operazione", c: false },
         { t: 'Procedere e documentare successivamente', c: false }
       ],
@@ -306,17 +315,19 @@ const SCENARIOS = [
 
   { id: 'lazio', title: 'Scenario 5 — Regione Lazio', subtitle: 'Ransomware su infrastruttura', phases: [
     { label: 'Phishing e accesso VPN',
-      briefing: `Alle 09:38 un'email sfrutta l'urgenza di un aggiornamento del client VPN per indurre l'amministratore di rete a inserire le proprie credenziali su un portale contraffatto.`,
+      briefing: `Alle 09:38 un'email sfrutta l'urgenza di un aggiornamento del client VPN per indurre l'amministratore di rete a inserire le proprie credenziali su un portale contraffatto. Il portale VPN ufficialmente in uso presso l'ente è raggiungibile all'indirizzo vpn.regione-lazio.it.`,
       feed: [
         { file: 'phishing_lure.eml' },
         'From: IT Support <support@regione-lazio-it.it>','Oggetto: Aggiornamento urgente client VPN richiesto entro le 10:00','Link: hxxps://vpn-regione-lazio-update[.]com/renew',
         { file: 'vpn_gateway_logs.csv' },
-        '09:41:02 — AUTH_SUCCESS — user=admin.rete — src=194.28.10.4 — session=VPN-9931 (IP anomalo)'
+        '17/03 — 08:52:14 — AUTH_SUCCESS — user=admin.rete — src=151.20.44.10 — session=VPN-7702',
+        '18/03 — 09:03:41 — AUTH_SUCCESS — user=admin.rete — src=151.20.44.10 — session=VPN-7715',
+        '19/03 — 09:41:02 — AUTH_SUCCESS — user=admin.rete — src=194.28.10.4 — session=VPN-9931'
       ],
       checklist: [
         { t: "L'email sfrutta l'urgenza di un aggiornamento del client VPN", c: true },
         { t: 'Il link porta a un dominio diverso da quello ufficiale (vpn-regione-lazio-update.com)', c: true },
-        { t: "Il log VPN mostra un accesso da un IP anomalo pochi minuti dopo l'orario dell'email", c: true },
+        { t: "L'accesso delle 09:41 proviene da un IP diverso da quello utilizzato nei giorni precedenti dallo stesso utente", c: true },
         { t: 'Il link nel messaggio utilizza il protocollo HTTPS (hxxps)', c: false },
         { t: 'Il destinatario è un utente generico, non un amministratore', c: false }
       ],
@@ -333,14 +344,18 @@ const SCENARIOS = [
       briefing: `Nel Domain Controller viene rilevata, successivamente all'accesso della Fase 1, la creazione di una Group Policy — una regola che si applica automaticamente a tutti i computer della rete — non registrata tra le modifiche autorizzate.`,
       feed: [
         { file: 'windows_security_audit.log' },
-        'Event ID 4624 — accesso standard (rumore)','Event ID 4627 — aggiornamento policy generico (rumore)','Event ID 5136 — Directory Service Changes — GPO_Emergency_Patch_KB99812'
+        '19/03 — 09:15:02 — Event ID 4624 — Logon riuscito — user=admin.rete — workstation=DC01',
+        '19/03 — 09:30:47 — Event ID 4624 — Logon riuscito — user=j.verdi — workstation=WS-14',
+        '19/03 — 09:47:18 — Event ID 5136 — Directory Service Changes — oggetto modificato: GPO_Emergency_Patch_KB99812 — modificato da: admin.rete',
+        '19/03 — 10:02:33 — Event ID 4624 — Logon riuscito — user=admin.rete — workstation=DC01',
+        '19/03 — 10:15:09 — Event ID 4627 — Aggiornamento informazioni di gruppo — utente=j.verdi'
       ],
       checklist: [
-        { t: 'Viene creata una nuova Group Policy non registrata tra le modifiche autorizzate', c: true },
-        { t: "L'evento di modifica in Active Directory è isolato tra eventi di routine", c: true },
-        { t: 'Il nome della GPO ("GPO_Emergency_Patch_KB99812") imita un aggiornamento di sicurezza legittimo, probabilmente per non destare sospetti', c: true },
-        { t: 'Gli eventi di accesso standard nel log sono tutti sospetti', c: false },
-        { t: "L'evento è registrato con un identificativo numerico (Event ID)", c: false }
+        { t: "La modifica della GPO avviene pochi minuti dopo l'accesso anomalo delle 09:41 registrato in Fase 1", c: true },
+        { t: "La modifica è stata eseguita dallo stesso account (admin.rete) coinvolto nell'accesso anomalo della Fase 1", c: true },
+        { t: 'Il nome dell\'oggetto modificato ("GPO_Emergency_Patch_KB99812") imita il formato di un aggiornamento di sicurezza legittimo', c: true },
+        { t: 'Gli eventi di logon (Event ID 4624) coinvolgono sempre lo stesso utente', c: false },
+        { t: "L'evento Event ID 4627 è avvenuto prima della modifica della GPO", c: false }
       ],
       choices: [
         { t: 'Isolare la GPO malevola, revocarla e avviare threat hunting sugli host coinvolti', c: true },
@@ -352,15 +367,18 @@ const SCENARIOS = [
         also: "Cyber Kill Chain: Installation · CSE Kill Chain: esecuzione dell'azione (fase a componente tecnica prevalente)" }
     },
     { label: 'Esito',
-      briefing: `Un report di triage forense documenta l'impatto distruttivo sugli endpoint colpiti, successivamente alla distribuzione della GPO malevola vista in Fase 2.`,
+      briefing: `Sono le 10:22 del 19/03. Un tecnico dell'assistenza segnala diversi computer bloccati con una richiesta di riscatto a schermo. Il report di triage ricostruisce i comandi eseguiti sugli host colpiti, pochi minuti dopo la modifica della GPO vista in Fase 2 (09:47).`,
       feed: [
         { file: 'encrypted_host_triage.txt' },
-        'vssadmin delete shadows /all /quiet — eseguito','bcdedit /set {default} recoveryenabled no — eseguito','Stato file system: cifrato'
+        "10:22:07 — comando eseguito: vssadmin delete shadows /all /quiet (elimina le copie di backup automatiche di Windows)",
+        "10:22:15 — comando eseguito: bcdedit /set {default} recoveryenabled no (disattiva il ripristino automatico all'avvio)",
+        '10:23:40 — file system cifrato su 46 host del dominio',
+        '10:24:02 — richiesta di riscatto (ransom note) comparsa su tutti gli host colpiti'
       ],
       checklist: [
-        { t: 'Sono stati eseguiti comandi per inibire il ripristino di sistema (vssadmin, bcdedit)', c: true },
-        { t: 'Il file system risulta cifrato sugli host coinvolti', c: true },
-        { t: 'La cifratura è avvenuta successivamente alla distribuzione della GPO malevola vista in Fase 2', c: true },
+        { t: 'Sono stati eseguiti comandi per impedire il ripristino di sistema, prima ancora che la cifratura avesse effetto', c: true },
+        { t: 'Il file system risulta cifrato su decine di host, non su uno isolato', c: true },
+        { t: 'I comandi delle 10:22 avvengono a poca distanza dalla modifica della GPO delle 09:47 vista in Fase 2', c: true },
         { t: 'Il ripristino automatico da backup è stato completato con successo prima della cifratura', c: false },
         { t: 'Solo un singolo host isolato è stato colpito', c: false }
       ],
